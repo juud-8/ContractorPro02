@@ -61,7 +61,234 @@ export class MemStorage implements IStorage {
   private currentLineItemId = 1;
 
   constructor() {
-    // Initialize with empty data
+    this.initializeSampleData();
+  }
+
+  private initializeSampleData() {
+    // Sample customer data
+    const sampleCustomers = [
+      {
+        name: "John Smith",
+        email: "john.smith@email.com",
+        phone: "(555) 123-4567",
+        address: "123 Oak Street",
+        city: "Springfield",
+        state: "IL",
+        zipCode: "62701",
+        customerType: "residential",
+        status: "active",
+      },
+      {
+        name: "ABC Construction Co.",
+        email: "info@abcconstruction.com",
+        phone: "(555) 987-6543",
+        address: "456 Industrial Blvd",
+        city: "Springfield",
+        state: "IL",
+        zipCode: "62702",
+        customerType: "commercial",
+        status: "active",
+      },
+      {
+        name: "Maria Rodriguez",
+        email: "maria.rodriguez@email.com",
+        phone: "(555) 456-7890",
+        address: "789 Pine Avenue",
+        city: "Springfield",
+        state: "IL",
+        zipCode: "62703",
+        customerType: "residential",
+        status: "active",
+      },
+    ];
+
+    sampleCustomers.forEach((customer, index) => {
+      this.customers.set(index + 1, {
+        id: index + 1,
+        name: customer.name,
+        email: customer.email,
+        phone: customer.phone,
+        address: customer.address,
+        city: customer.city,
+        state: customer.state,
+        zipCode: customer.zipCode,
+        customerType: customer.customerType,
+        status: customer.status,
+      });
+    });
+
+    this.currentCustomerId = sampleCustomers.length + 1;
+
+    // Sample invoices
+    const sampleInvoices = [
+      {
+        invoiceNumber: "INV-2024-001",
+        customerId: 1,
+        projectDescription: "Kitchen Renovation",
+        status: "paid",
+        subtotal: "4500.00",
+        taxRate: "8.25",
+        taxAmount: "371.25",
+        total: "4871.25",
+        issueDate: new Date("2024-01-15"),
+        dueDate: new Date("2024-02-15"),
+        paidDate: new Date("2024-01-20"),
+        notes: "Payment received via check",
+        showLineItems: true,
+        showLogo: true,
+        showPaymentTerms: true,
+      },
+      {
+        invoiceNumber: "INV-2024-002",
+        customerId: 2,
+        projectDescription: "Office Renovation",
+        status: "sent",
+        subtotal: "8750.00",
+        taxRate: "8.25",
+        taxAmount: "721.88",
+        total: "9471.88",
+        issueDate: new Date("2024-01-20"),
+        dueDate: new Date("2024-02-20"),
+        paidDate: null,
+        notes: "Net 30 payment terms",
+        showLineItems: true,
+        showLogo: true,
+        showPaymentTerms: true,
+      },
+    ];
+
+    sampleInvoices.forEach((invoice, index) => {
+      const id = index + 1;
+      this.invoices.set(id, {
+        id,
+        invoiceNumber: invoice.invoiceNumber,
+        customerId: invoice.customerId,
+        projectDescription: invoice.projectDescription,
+        status: invoice.status,
+        subtotal: invoice.subtotal,
+        taxRate: invoice.taxRate,
+        taxAmount: invoice.taxAmount,
+        total: invoice.total,
+        issueDate: invoice.issueDate,
+        dueDate: invoice.dueDate,
+        paidDate: invoice.paidDate,
+        notes: invoice.notes,
+        showLineItems: invoice.showLineItems,
+        showLogo: invoice.showLogo,
+        showPaymentTerms: invoice.showPaymentTerms,
+      });
+    });
+
+    this.currentInvoiceId = sampleInvoices.length + 1;
+
+    // Sample invoice line items
+    const sampleLineItems = [
+      [
+        { description: "Demolition and cleanup", quantity: "1", rate: "800.00", amount: "800.00", sortOrder: 0 },
+        { description: "Cabinet installation", quantity: "1", rate: "2500.00", amount: "2500.00", sortOrder: 1 },
+        { description: "Countertop installation", quantity: "1", rate: "1200.00", amount: "1200.00", sortOrder: 2 },
+      ],
+      [
+        { description: "Flooring installation", quantity: "500", rate: "8.50", amount: "4250.00", sortOrder: 0 },
+        { description: "Electrical work", quantity: "1", rate: "2000.00", amount: "2000.00", sortOrder: 1 },
+        { description: "Painting", quantity: "1", rate: "2500.00", amount: "2500.00", sortOrder: 2 },
+      ],
+    ];
+
+    sampleLineItems.forEach((lineItems, invoiceIndex) => {
+      const invoiceId = invoiceIndex + 1;
+      const processedLineItems = lineItems.map((item) => ({
+        id: this.currentLineItemId++,
+        invoiceId,
+        description: item.description,
+        quantity: item.quantity,
+        rate: item.rate,
+        amount: item.amount,
+        sortOrder: item.sortOrder,
+      }));
+      this.invoiceLineItems.set(invoiceId, processedLineItems);
+    });
+
+    // Sample quotes
+    const sampleQuotes = [
+      {
+        quoteNumber: "QUO-2024-001",
+        customerId: 1,
+        projectDescription: "Deck Construction",
+        status: "sent",
+        subtotal: "6500.00",
+        taxRate: "8.25",
+        taxAmount: "536.25",
+        total: "7036.25",
+        issueDate: new Date("2024-01-10"),
+        validUntil: new Date("2024-02-10"),
+        acceptedDate: null,
+        notes: "Quote includes all materials and labor",
+      },
+      {
+        quoteNumber: "QUO-2024-002",
+        customerId: 2,
+        projectDescription: "Warehouse Expansion",
+        status: "accepted",
+        subtotal: "25000.00",
+        taxRate: "8.25",
+        taxAmount: "2062.50",
+        total: "27062.50",
+        issueDate: new Date("2024-01-05"),
+        validUntil: new Date("2024-02-05"),
+        acceptedDate: new Date("2024-01-18"),
+        notes: "Project to begin February 1st",
+      },
+    ];
+
+    sampleQuotes.forEach((quote, index) => {
+      const id = index + 1;
+      this.quotes.set(id, {
+        id,
+        quoteNumber: quote.quoteNumber,
+        customerId: quote.customerId,
+        projectDescription: quote.projectDescription,
+        status: quote.status,
+        subtotal: quote.subtotal,
+        taxRate: quote.taxRate,
+        taxAmount: quote.taxAmount,
+        total: quote.total,
+        issueDate: quote.issueDate,
+        validUntil: quote.validUntil,
+        acceptedDate: quote.acceptedDate,
+        notes: quote.notes,
+      });
+    });
+
+    this.currentQuoteId = sampleQuotes.length + 1;
+
+    // Sample quote line items
+    const sampleQuoteLineItems = [
+      [
+        { description: "Deck framing", quantity: "1", rate: "3000.00", amount: "3000.00", sortOrder: 0 },
+        { description: "Decking material", quantity: "1", rate: "2500.00", amount: "2500.00", sortOrder: 1 },
+        { description: "Railing installation", quantity: "1", rate: "1000.00", amount: "1000.00", sortOrder: 2 },
+      ],
+      [
+        { description: "Foundation work", quantity: "1", rate: "12000.00", amount: "12000.00", sortOrder: 0 },
+        { description: "Steel framework", quantity: "1", rate: "8000.00", amount: "8000.00", sortOrder: 1 },
+        { description: "Roofing", quantity: "1", rate: "5000.00", amount: "5000.00", sortOrder: 2 },
+      ],
+    ];
+
+    sampleQuoteLineItems.forEach((lineItems, quoteIndex) => {
+      const quoteId = quoteIndex + 1;
+      const processedLineItems = lineItems.map((item) => ({
+        id: this.currentLineItemId++,
+        quoteId,
+        description: item.description,
+        quantity: item.quantity,
+        rate: item.rate,
+        amount: item.amount,
+        sortOrder: item.sortOrder,
+      }));
+      this.quoteLineItems.set(quoteId, processedLineItems);
+    });
   }
 
   async getCustomers(): Promise<Customer[]> {
@@ -75,7 +302,15 @@ export class MemStorage implements IStorage {
   async createCustomer(insertCustomer: InsertCustomer): Promise<Customer> {
     const customer: Customer = {
       id: this.currentCustomerId++,
-      ...insertCustomer,
+      name: insertCustomer.name,
+      email: insertCustomer.email || null,
+      phone: insertCustomer.phone || null,
+      address: insertCustomer.address || null,
+      city: insertCustomer.city || null,
+      state: insertCustomer.state || null,
+      zipCode: insertCustomer.zipCode || null,
+      customerType: insertCustomer.customerType || "residential",
+      status: insertCustomer.status || "active",
     };
     this.customers.set(customer.id, customer);
     return customer;
@@ -117,15 +352,33 @@ export class MemStorage implements IStorage {
   async createInvoice(insertInvoice: InsertInvoice, lineItems: InsertInvoiceLineItem[]): Promise<InvoiceWithCustomer> {
     const invoice: Invoice = {
       id: this.currentInvoiceId++,
-      ...insertInvoice,
+      invoiceNumber: insertInvoice.invoiceNumber,
+      customerId: insertInvoice.customerId,
+      projectDescription: insertInvoice.projectDescription || null,
+      status: insertInvoice.status || "draft",
+      subtotal: insertInvoice.subtotal,
+      taxRate: insertInvoice.taxRate || "0",
+      taxAmount: insertInvoice.taxAmount || "0",
+      total: insertInvoice.total,
+      dueDate: insertInvoice.dueDate || null,
+      issueDate: insertInvoice.issueDate,
+      paidDate: insertInvoice.paidDate || null,
+      notes: insertInvoice.notes || null,
+      showLineItems: insertInvoice.showLineItems ?? true,
+      showLogo: insertInvoice.showLogo ?? true,
+      showPaymentTerms: insertInvoice.showPaymentTerms ?? true,
     };
     
     this.invoices.set(invoice.id, invoice);
     
     const processedLineItems = lineItems.map(item => ({
-      ...item,
       id: this.currentLineItemId++,
       invoiceId: invoice.id,
+      description: item.description,
+      quantity: item.quantity,
+      rate: item.rate,
+      amount: item.amount,
+      sortOrder: item.sortOrder || 0,
     }));
     
     this.invoiceLineItems.set(invoice.id, processedLineItems);
@@ -146,9 +399,13 @@ export class MemStorage implements IStorage {
     
     if (lineItems) {
       const processedLineItems = lineItems.map(item => ({
-        ...item,
         id: this.currentLineItemId++,
         invoiceId: id,
+        description: item.description,
+        quantity: item.quantity,
+        rate: item.rate,
+        amount: item.amount,
+        sortOrder: item.sortOrder || 0,
       }));
       this.invoiceLineItems.set(id, processedLineItems);
     }
@@ -188,15 +445,30 @@ export class MemStorage implements IStorage {
   async createQuote(insertQuote: InsertQuote, lineItems: InsertQuoteLineItem[]): Promise<QuoteWithCustomer> {
     const quote: Quote = {
       id: this.currentQuoteId++,
-      ...insertQuote,
+      quoteNumber: insertQuote.quoteNumber,
+      customerId: insertQuote.customerId,
+      projectDescription: insertQuote.projectDescription || null,
+      status: insertQuote.status || "draft",
+      subtotal: insertQuote.subtotal,
+      taxRate: insertQuote.taxRate || "0",
+      taxAmount: insertQuote.taxAmount || "0",
+      total: insertQuote.total,
+      validUntil: insertQuote.validUntil || null,
+      issueDate: insertQuote.issueDate,
+      acceptedDate: insertQuote.acceptedDate || null,
+      notes: insertQuote.notes || null,
     };
     
     this.quotes.set(quote.id, quote);
     
     const processedLineItems = lineItems.map(item => ({
-      ...item,
       id: this.currentLineItemId++,
       quoteId: quote.id,
+      description: item.description,
+      quantity: item.quantity,
+      rate: item.rate,
+      amount: item.amount,
+      sortOrder: item.sortOrder || 0,
     }));
     
     this.quoteLineItems.set(quote.id, processedLineItems);
@@ -217,9 +489,13 @@ export class MemStorage implements IStorage {
     
     if (lineItems) {
       const processedLineItems = lineItems.map(item => ({
-        ...item,
         id: this.currentLineItemId++,
         quoteId: id,
+        description: item.description,
+        quantity: item.quantity,
+        rate: item.rate,
+        amount: item.amount,
+        sortOrder: item.sortOrder || 0,
       }));
       this.quoteLineItems.set(id, processedLineItems);
     }

@@ -127,8 +127,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/invoices/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const { invoice, lineItems } = invoiceCreateSchema.partial().parse(req.body);
-      const updatedInvoice = await storage.updateInvoice(id, invoice, lineItems);
+      const { invoice, lineItems } = req.body;
+      const updatedInvoice = await storage.updateInvoice(id, invoice || {}, lineItems);
       if (!updatedInvoice) {
         return res.status(404).json({ message: "Invoice not found" });
       }
@@ -193,8 +193,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/quotes/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const { quote, lineItems } = quoteCreateSchema.partial().parse(req.body);
-      const updatedQuote = await storage.updateQuote(id, quote, lineItems);
+      const { quote, lineItems } = req.body;
+      const updatedQuote = await storage.updateQuote(id, quote || {}, lineItems);
       if (!updatedQuote) {
         return res.status(404).json({ message: "Quote not found" });
       }
