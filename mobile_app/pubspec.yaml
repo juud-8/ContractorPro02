@@ -1,0 +1,91 @@
+name: tradeinvoice_pro
+description: A contractor invoicing and business management mobile application
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  
+  # UI and Navigation
+  cupertino_icons: ^1.0.2
+  flutter_svg: ^2.0.7
+  go_router: ^12.1.3
+  
+  # State Management
+  flutter_bloc: ^8.1.3
+  equatable: ^2.0.5
+  
+  # Network and API
+  dio: ^5.3.2
+  retrofit: ^4.0.3
+  json_annotation: ^4.8.1
+  
+  # Local Storage
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+  path_provider: ^2.1.1
+  
+  # Device Integration
+  camera: ^0.10.5+5
+  permission_handler: ^11.0.1
+  geolocator: ^10.1.0
+  device_info_plus: ^9.1.0
+  
+  # Authentication and Security
+  flutter_secure_storage: ^9.0.0
+  local_auth: ^2.1.6
+  
+  # UI Components
+  flutter_slidable: ^3.0.0
+  shimmer: ^3.0.0
+  cached_network_image: ^3.3.0
+  
+  # Utilities
+  intl: ^0.18.1
+  uuid: ^4.1.0
+  share_plus: ^7.2.1
+  url_launcher: ^6.2.1
+  
+  # PDF Generation
+  pdf: ^3.10.4
+  printing: ^5.11.0
+  
+  # Push Notifications
+  firebase_core: ^2.17.0
+  firebase_messaging: ^14.7.0
+  flutter_local_notifications: ^15.1.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  
+  # Code Generation
+  build_runner: ^2.4.7
+  json_serializable: ^6.7.1
+  retrofit_generator: ^7.0.8
+  hive_generator: ^2.0.1
+  
+  # Linting
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
+  
+  assets:
+    - assets/images/
+    - assets/icons/
+    - assets/logos/
+  
+  fonts:
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/Inter-Regular.ttf
+        - asset: assets/fonts/Inter-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Inter-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/Inter-Bold.ttf
+          weight: 700
