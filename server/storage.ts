@@ -5,6 +5,11 @@ import {
   quotes, 
   quoteLineItems,
   settings,
+  payments,
+  expenses,
+  timeEntries,
+  tasks,
+  notifications,
   type Customer, 
   type InsertCustomer, 
   type Invoice, 
@@ -17,8 +22,21 @@ import {
   type InsertQuoteLineItem,
   type Settings,
   type InsertSettings,
+  type Payment,
+  type InsertPayment,
+  type Expense,
+  type InsertExpense,
+  type TimeEntry,
+  type InsertTimeEntry,
+  type Task,
+  type InsertTask,
+  type Notification,
+  type InsertNotification,
   type InvoiceWithCustomer,
-  type QuoteWithCustomer
+  type QuoteWithCustomer,
+  type ExpenseWithCustomer,
+  type TimeEntryWithCustomer,
+  type TaskWithCustomer
 } from "@shared/schema";
 import { db } from "./db";
 import { eq } from "drizzle-orm";
@@ -56,6 +74,36 @@ export interface IStorage {
   // Settings operations
   getSettings(): Promise<Settings>;
   updateSettings(settings: Partial<InsertSettings>): Promise<Settings>;
+
+  // Payment operations
+  getPayments(): Promise<Payment[]>;
+  createPayment(payment: InsertPayment): Promise<Payment>;
+  deletePayment(id: number): Promise<boolean>;
+
+  // Expense operations
+  getExpenses(): Promise<ExpenseWithCustomer[]>;
+  createExpense(expense: InsertExpense): Promise<ExpenseWithCustomer>;
+  updateExpense(id: number, expense: Partial<InsertExpense>): Promise<ExpenseWithCustomer | undefined>;
+  deleteExpense(id: number): Promise<boolean>;
+
+  // Time entry operations
+  getTimeEntries(): Promise<TimeEntryWithCustomer[]>;
+  createTimeEntry(timeEntry: InsertTimeEntry): Promise<TimeEntryWithCustomer>;
+  updateTimeEntry(id: number, timeEntry: Partial<InsertTimeEntry>): Promise<TimeEntryWithCustomer | undefined>;
+  deleteTimeEntry(id: number): Promise<boolean>;
+
+  // Task operations
+  getTasks(): Promise<TaskWithCustomer[]>;
+  createTask(task: InsertTask): Promise<TaskWithCustomer>;
+  updateTask(id: number, task: Partial<InsertTask>): Promise<TaskWithCustomer | undefined>;
+  deleteTask(id: number): Promise<boolean>;
+
+  // Notification operations
+  getNotifications(): Promise<Notification[]>;
+  createNotification(notification: InsertNotification): Promise<Notification>;
+  markNotificationAsRead(id: number): Promise<boolean>;
+  markAllNotificationsAsRead(): Promise<boolean>;
+  deleteNotification(id: number): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -383,6 +431,251 @@ export class DatabaseStorage implements IStorage {
     }
     
     return settingsRecord;
+  }
+
+  // Payment operations
+  async getPayments(): Promise<Payment[]> {
+    return await db.select().from(payments);
+  }
+
+  async createPayment(insertPayment: InsertPayment): Promise<Payment> {
+    const [payment] = await db
+      .insert(payments)
+      .values(insertPayment)
+      .returning();
+    return payment;
+  }
+
+  async deletePayment(id: number): Promise<boolean> {
+    const result = await db
+      .delete(payments)
+      .where(eq(payments.id, id));
+    return (result.rowCount || 0) > 0;
+  }
+
+  // Expense operations
+  async getExpenses(): Promise<ExpenseWithCustomer[]> {
+    const result = await db.query.expenses.findMany({
+      with: {
+        customer: true,
+      },
+    });
+    return result.map(expense => ({
+      ...expense,
+      customer: expense.customer || undefined,
+    }));
+  }
+
+  async createExpense(insertExpense: InsertExpense): Promise<ExpenseWithCustomer> {
+    const [expense] = await db
+      .insert(expenses)
+      .values(insertExpense)
+      .returning();
+    
+    const result = await db.query.expenses.findFirst({
+      where: eq(expenses.id, expense.id),
+      with: {
+        customer: true,
+      },
+    });
+    
+    return {
+      ...result!,
+      customer: result!.customer || undefined,
+    };
+  }
+
+  async updateExpense(id: number, updates: Partial<InsertExpense>): Promise<ExpenseWithCustomer | undefined> {
+    const [updated] = await db
+      .update(expenses)
+      .set(updates)
+      .where(eq(expenses.id, id))
+      .returning();
+    
+    if (!updated) return undefined;
+    
+    const result = await db.query.expenses.findFirst({
+      where: eq(expenses.id, id),
+      with: {
+        customer: true,
+      },
+    });
+    
+    if (!result) return undefined;
+    
+    return {
+      ...result,
+      customer: result.customer || undefined,
+    };
+  }
+
+  async deleteExpense(id: number): Promise<boolean> {
+    const result = await db
+      .delete(expenses)
+      .where(eq(expenses.id, id));
+    return (result.rowCount || 0) > 0;
+  }
+
+  // Time entry operations
+  async getTimeEntries(): Promise<TimeEntryWithCustomer[]> {
+    const result = await db.query.timeEntries.findMany({
+      with: {
+        customer: true,
+      },
+    });
+    return result.map(entry => ({
+      ...entry,
+      customer: entry.customer || undefined,
+    }));
+  }
+
+  async createTimeEntry(insertTimeEntry: InsertTimeEntry): Promise<TimeEntryWithCustomer> {
+    const [timeEntry] = await db
+      .insert(timeEntries)
+      .values(insertTimeEntry)
+      .returning();
+    
+    const result = await db.query.timeEntries.findFirst({
+      where: eq(timeEntries.id, timeEntry.id),
+      with: {
+        customer: true,
+      },
+    });
+    
+    return {
+      ...result!,
+      customer: result!.customer || undefined,
+    };
+  }
+
+  async updateTimeEntry(id: number, updates: Partial<InsertTimeEntry>): Promise<TimeEntryWithCustomer | undefined> {
+    const [updated] = await db
+      .update(timeEntries)
+      .set(updates)
+      .where(eq(timeEntries.id, id))
+      .returning();
+    
+    if (!updated) return undefined;
+    
+    const result = await db.query.timeEntries.findFirst({
+      where: eq(timeEntries.id, id),
+      with: {
+        customer: true,
+      },
+    });
+    
+    if (!result) return undefined;
+    
+    return {
+      ...result,
+      customer: result.customer || undefined,
+    };
+  }
+
+  async deleteTimeEntry(id: number): Promise<boolean> {
+    const result = await db
+      .delete(timeEntries)
+      .where(eq(timeEntries.id, id));
+    return (result.rowCount || 0) > 0;
+  }
+
+  // Task operations
+  async getTasks(): Promise<TaskWithCustomer[]> {
+    const result = await db.query.tasks.findMany({
+      with: {
+        customer: true,
+      },
+    });
+    return result.map(task => ({
+      ...task,
+      customer: task.customer || undefined,
+    }));
+  }
+
+  async createTask(insertTask: InsertTask): Promise<TaskWithCustomer> {
+    const [task] = await db
+      .insert(tasks)
+      .values(insertTask)
+      .returning();
+    
+    const result = await db.query.tasks.findFirst({
+      where: eq(tasks.id, task.id),
+      with: {
+        customer: true,
+      },
+    });
+    
+    return {
+      ...result!,
+      customer: result!.customer || undefined,
+    };
+  }
+
+  async updateTask(id: number, updates: Partial<InsertTask>): Promise<TaskWithCustomer | undefined> {
+    const [updated] = await db
+      .update(tasks)
+      .set(updates)
+      .where(eq(tasks.id, id))
+      .returning();
+    
+    if (!updated) return undefined;
+    
+    const result = await db.query.tasks.findFirst({
+      where: eq(tasks.id, id),
+      with: {
+        customer: true,
+      },
+    });
+    
+    if (!result) return undefined;
+    
+    return {
+      ...result,
+      customer: result.customer || undefined,
+    };
+  }
+
+  async deleteTask(id: number): Promise<boolean> {
+    const result = await db
+      .delete(tasks)
+      .where(eq(tasks.id, id));
+    return (result.rowCount || 0) > 0;
+  }
+
+  // Notification operations
+  async getNotifications(): Promise<Notification[]> {
+    return await db.select().from(notifications);
+  }
+
+  async createNotification(insertNotification: InsertNotification): Promise<Notification> {
+    const [notification] = await db
+      .insert(notifications)
+      .values(insertNotification)
+      .returning();
+    return notification;
+  }
+
+  async markNotificationAsRead(id: number): Promise<boolean> {
+    const result = await db
+      .update(notifications)
+      .set({ isRead: true })
+      .where(eq(notifications.id, id));
+    return (result.rowCount || 0) > 0;
+  }
+
+  async markAllNotificationsAsRead(): Promise<boolean> {
+    const result = await db
+      .update(notifications)
+      .set({ isRead: true })
+      .where(eq(notifications.isRead, false));
+    return (result.rowCount || 0) > 0;
+  }
+
+  async deleteNotification(id: number): Promise<boolean> {
+    const result = await db
+      .delete(notifications)
+      .where(eq(notifications.id, id));
+    return (result.rowCount || 0) > 0;
   }
 }
 
@@ -947,6 +1240,148 @@ export class MemStorage implements IStorage {
       quoteFooter: "",
       ...updates,
     };
+  }
+
+  // Payment operations (stub implementations for interface compliance)
+  async getPayments(): Promise<Payment[]> {
+    return [];
+  }
+
+  async createPayment(payment: InsertPayment): Promise<Payment> {
+    return {
+      id: 1,
+      invoiceId: payment.invoiceId ?? null,
+      amount: payment.amount,
+      paymentDate: payment.paymentDate,
+      paymentMethod: payment.paymentMethod,
+      reference: payment.reference || null,
+      notes: payment.notes || null,
+      createdAt: new Date(),
+    };
+  }
+
+  async deletePayment(id: number): Promise<boolean> {
+    return true;
+  }
+
+  // Expense operations (stub implementations for interface compliance)
+  async getExpenses(): Promise<ExpenseWithCustomer[]> {
+    return [];
+  }
+
+  async createExpense(expense: InsertExpense): Promise<ExpenseWithCustomer> {
+    return {
+      id: 1,
+      date: expense.date,
+      customerId: expense.customerId ?? null,
+      invoiceId: expense.invoiceId ?? null,
+      description: expense.description,
+      amount: expense.amount,
+      category: expense.category,
+      receipt: expense.receipt || null,
+      billable: expense.billable || false,
+      createdAt: new Date(),
+      customer: expense.customerId ? this.customers.get(expense.customerId) : undefined,
+    };
+  }
+
+  async updateExpense(id: number, updates: Partial<InsertExpense>): Promise<ExpenseWithCustomer | undefined> {
+    return undefined;
+  }
+
+  async deleteExpense(id: number): Promise<boolean> {
+    return true;
+  }
+
+  // Time entry operations (stub implementations for interface compliance)
+  async getTimeEntries(): Promise<TimeEntryWithCustomer[]> {
+    return [];
+  }
+
+  async createTimeEntry(timeEntry: InsertTimeEntry): Promise<TimeEntryWithCustomer> {
+    return {
+      id: 1,
+      customerId: timeEntry.customerId ?? null,
+      projectDescription: timeEntry.projectDescription,
+      startTime: timeEntry.startTime,
+      endTime: timeEntry.endTime || null,
+      duration: timeEntry.duration || null,
+      hourlyRate: timeEntry.hourlyRate || null,
+      notes: timeEntry.notes || null,
+      billable: timeEntry.billable || false,
+      invoiceId: timeEntry.invoiceId ?? null,
+      createdAt: new Date(),
+      customer: timeEntry.customerId ? this.customers.get(timeEntry.customerId) : undefined,
+    };
+  }
+
+  async updateTimeEntry(id: number, updates: Partial<InsertTimeEntry>): Promise<TimeEntryWithCustomer | undefined> {
+    return undefined;
+  }
+
+  async deleteTimeEntry(id: number): Promise<boolean> {
+    return true;
+  }
+
+  // Task operations (stub implementations for interface compliance)
+  async getTasks(): Promise<TaskWithCustomer[]> {
+    return [];
+  }
+
+  async createTask(task: InsertTask): Promise<TaskWithCustomer> {
+    return {
+      id: 1,
+      title: task.title,
+      description: task.description || null,
+      status: task.status || "pending",
+      priority: task.priority || "medium",
+      customerId: task.customerId ?? null,
+      assignedTo: task.assignedTo || null,
+      dueDate: task.dueDate || null,
+      estimatedHours: task.estimatedHours || null,
+      actualHours: task.actualHours || null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      customer: task.customerId ? this.customers.get(task.customerId) : undefined,
+    };
+  }
+
+  async updateTask(id: number, updates: Partial<InsertTask>): Promise<TaskWithCustomer | undefined> {
+    return undefined;
+  }
+
+  async deleteTask(id: number): Promise<boolean> {
+    return true;
+  }
+
+  // Notification operations (stub implementations for interface compliance)
+  async getNotifications(): Promise<Notification[]> {
+    return [];
+  }
+
+  async createNotification(notification: InsertNotification): Promise<Notification> {
+    return {
+      id: 1,
+      type: notification.type || "system",
+      title: notification.title,
+      message: notification.message,
+      isRead: false,
+      relatedId: notification.relatedId || null,
+      relatedType: notification.relatedType || null,
+      createdAt: new Date(),
+    };
+  }
+
+  async markNotificationAsRead(id: number): Promise<boolean> {
+    return true;
+  }
+
+  async markAllNotificationsAsRead(): Promise<boolean> {
+    return true;
+  }
+
+  async deleteNotification(id: number): Promise<boolean> {
+    return true;
   }
 }
 

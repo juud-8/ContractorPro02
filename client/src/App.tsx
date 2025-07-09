@@ -8,8 +8,13 @@ import Dashboard from "@/pages/dashboard";
 import Invoices from "@/pages/invoices";
 import Quotes from "@/pages/quotes";
 import Customers from "@/pages/customers";
+import Payments from "@/pages/payments";
+import Expenses from "@/pages/expenses";
+import TimeTracking from "@/pages/time-tracking";
+import Tasks from "@/pages/tasks";
 import Reports from "@/pages/reports";
 import Settings from "@/pages/settings";
+import Notifications from "@/pages/notifications";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -20,8 +25,13 @@ function Router() {
         <Route path="/invoices" component={Invoices} />
         <Route path="/quotes" component={Quotes} />
         <Route path="/customers" component={Customers} />
+        <Route path="/payments" component={Payments} />
+        <Route path="/expenses" component={Expenses} />
+        <Route path="/time-tracking" component={TimeTracking} />
+        <Route path="/tasks" component={Tasks} />
         <Route path="/reports" component={Reports} />
         <Route path="/settings" component={Settings} />
+        <Route path="/notifications" component={Notifications} />
         <Route component={NotFound} />
       </Switch>
     </MainLayout>

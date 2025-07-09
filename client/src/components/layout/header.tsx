@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Menu, Plus } from "lucide-react";
 import { useState } from "react";
 import InvoiceBuilder from "@/components/invoices/invoice-builder";
-import NotificationCenter from "@/components/notifications/notification-center";
+import NotificationBell from "@/components/notifications/notification-bell";
 
 interface HeaderProps {
   onMenuClick: () => void;
@@ -16,6 +16,7 @@ const pageNames: Record<string, string> = {
   "/customers": "Customers",
   "/reports": "Reports",
   "/settings": "Settings",
+  "/notifications": "Notifications",
 };
 
 export default function Header({ onMenuClick }: HeaderProps) {
@@ -50,7 +51,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
                 <Plus className="w-4 h-4 mr-2" />
                 New Invoice
               </Button>
-              <NotificationCenter />
+              <NotificationBell />
             </div>
           </div>
         </div>

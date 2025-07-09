@@ -117,6 +117,59 @@ export const settings = pgTable("settings", {
   quoteFooter: text("quote_footer").default(""),
 });
 
+export const payments = pgTable("payments", {
+  id: serial("id").primaryKey(),
+  invoiceId: integer("invoice_id").references(() => invoices.id, { onDelete: "cascade" }),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  paymentMethod: text("payment_method").notNull(), // cash, check, card, bank_transfer, paypal
+  paymentDate: timestamp("payment_date").notNull(),
+  reference: text("reference"), // check number, transaction ID, etc.
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const expenses = pgTable("expenses", {
+  id: serial("id").primaryKey(),
+  customerId: integer("customer_id").references(() => customers.id),
+  category: text("category").notNull(), // materials, labor, travel, equipment, etc.
+  description: text("description").notNull(),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  date: timestamp("date").notNull(),
+  receipt: text("receipt"), // file path or URL
+  billable: boolean("billable").default(true),
+  invoiceId: integer("invoice_id").references(() => invoices.id),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const timeEntries = pgTable("time_entries", {
+  id: serial("id").primaryKey(),
+  customerId: integer("customer_id").references(() => customers.id),
+  projectDescription: text("project_description").notNull(),
+  startTime: timestamp("start_time").notNull(),
+  endTime: timestamp("end_time"),
+  duration: integer("duration"), // in minutes
+  hourlyRate: decimal("hourly_rate", { precision: 10, scale: 2 }),
+  billable: boolean("billable").default(true),
+  invoiceId: integer("invoice_id").references(() => invoices.id),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const tasks = pgTable("tasks", {
+  id: serial("id").primaryKey(),
+  customerId: integer("customer_id").references(() => customers.id),
+  title: text("title").notNull(),
+  description: text("description"),
+  status: text("status").default("pending"), // pending, in_progress, completed, cancelled
+  priority: text("priority").default("medium"), // low, medium, high, urgent
+  dueDate: timestamp("due_date"),
+  assignedTo: text("assigned_to"), // team member name or ID
+  estimatedHours: decimal("estimated_hours", { precision: 5, scale: 2 }),
+  actualHours: decimal("actual_hours", { precision: 5, scale: 2 }),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Insert schemas
 export const insertCustomerSchema = createInsertSchema(customers).omit({ id: true });
 export const insertInvoiceSchema = createInsertSchema(invoices).omit({ id: true });
@@ -125,6 +178,10 @@ export const insertQuoteSchema = createInsertSchema(quotes).omit({ id: true });
 export const insertQuoteLineItemSchema = createInsertSchema(quoteLineItems).omit({ id: true });
 export const insertSettingsSchema = createInsertSchema(settings).omit({ id: true });
 export const insertNotificationSchema = createInsertSchema(notifications).omit({ id: true, createdAt: true });
+export const insertPaymentSchema = createInsertSchema(payments).omit({ id: true, createdAt: true });
+export const insertExpenseSchema = createInsertSchema(expenses).omit({ id: true, createdAt: true });
+export const insertTimeEntrySchema = createInsertSchema(timeEntries).omit({ id: true, createdAt: true });
+export const insertTaskSchema = createInsertSchema(tasks).omit({ id: true, createdAt: true, updatedAt: true });
 
 // Types
 export type Customer = typeof customers.$inferSelect;
@@ -141,6 +198,14 @@ export type Settings = typeof settings.$inferSelect;
 export type InsertSettings = z.infer<typeof insertSettingsSchema>;
 export type Notification = typeof notifications.$inferSelect;
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+export type Payment = typeof payments.$inferSelect;
+export type InsertPayment = z.infer<typeof insertPaymentSchema>;
+export type Expense = typeof expenses.$inferSelect;
+export type InsertExpense = z.infer<typeof insertExpenseSchema>;
+export type TimeEntry = typeof timeEntries.$inferSelect;
+export type InsertTimeEntry = z.infer<typeof insertTimeEntrySchema>;
+export type Task = typeof tasks.$inferSelect;
+export type InsertTask = z.infer<typeof insertTaskSchema>;
 
 // Extended types for API responses
 export type InvoiceWithCustomer = Invoice & {
@@ -153,10 +218,31 @@ export type QuoteWithCustomer = Quote & {
   lineItems: QuoteLineItem[];
 };
 
+export type InvoiceWithPayments = Invoice & {
+  customer: Customer;
+  lineItems: InvoiceLineItem[];
+  payments: Payment[];
+};
+
+export type ExpenseWithCustomer = Expense & {
+  customer?: Customer;
+};
+
+export type TimeEntryWithCustomer = TimeEntry & {
+  customer?: Customer;
+};
+
+export type TaskWithCustomer = Task & {
+  customer?: Customer;
+};
+
 // Relations
 export const customersRelations = relations(customers, ({ many }) => ({
   invoices: many(invoices),
   quotes: many(quotes),
+  expenses: many(expenses),
+  timeEntries: many(timeEntries),
+  tasks: many(tasks),
 }));
 
 export const invoicesRelations = relations(invoices, ({ one, many }) => ({
@@ -165,6 +251,9 @@ export const invoicesRelations = relations(invoices, ({ one, many }) => ({
     references: [customers.id],
   }),
   lineItems: many(invoiceLineItems),
+  payments: many(payments),
+  expenses: many(expenses),
+  timeEntries: many(timeEntries),
 }));
 
 export const invoiceLineItemsRelations = relations(invoiceLineItems, ({ one }) => ({
@@ -186,6 +275,42 @@ export const quoteLineItemsRelations = relations(quoteLineItems, ({ one }) => ({
   quote: one(quotes, {
     fields: [quoteLineItems.quoteId],
     references: [quotes.id],
+  }),
+}));
+
+export const paymentsRelations = relations(payments, ({ one }) => ({
+  invoice: one(invoices, {
+    fields: [payments.invoiceId],
+    references: [invoices.id],
+  }),
+}));
+
+export const expensesRelations = relations(expenses, ({ one }) => ({
+  customer: one(customers, {
+    fields: [expenses.customerId],
+    references: [customers.id],
+  }),
+  invoice: one(invoices, {
+    fields: [expenses.invoiceId],
+    references: [invoices.id],
+  }),
+}));
+
+export const timeEntriesRelations = relations(timeEntries, ({ one }) => ({
+  customer: one(customers, {
+    fields: [timeEntries.customerId],
+    references: [customers.id],
+  }),
+  invoice: one(invoices, {
+    fields: [timeEntries.invoiceId],
+    references: [invoices.id],
+  }),
+}));
+
+export const tasksRelations = relations(tasks, ({ one }) => ({
+  customer: one(customers, {
+    fields: [tasks.customerId],
+    references: [customers.id],
   }),
 }));
 
