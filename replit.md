@@ -137,3 +137,8 @@ The application now includes:
 - **Settings Management**: Complete company settings with logo upload, tax rates, payment terms
 - **Logo Support**: Upload and display company logos in documents and PDFs
 - **Customizable Templates**: Different template options for invoices and quotes
+- **Advanced Customization**: Extended settings with branding, localization, document numbering
+- **Email Functionality**: Professional email sending with PDF attachments for invoices and quotes
+- **Template Selection**: Multiple professional templates with brand customization options
+- **Notification System**: Real-time alerts and notifications for business activities
+- **Document Customization**: Full control over invoice and quote appearance and content

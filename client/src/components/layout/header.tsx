@@ -1,8 +1,9 @@
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
-import { Menu, Plus, Bell } from "lucide-react";
+import { Menu, Plus } from "lucide-react";
 import { useState } from "react";
 import InvoiceBuilder from "@/components/invoices/invoice-builder";
+import NotificationCenter from "@/components/notifications/notification-center";
 
 interface HeaderProps {
   onMenuClick: () => void;
@@ -49,13 +50,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
                 <Plus className="w-4 h-4 mr-2" />
                 New Invoice
               </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="p-2 rounded-md contractor-text-slate-400 hover:contractor-text-slate-500 hover:contractor-bg-slate-100"
-              >
-                <Bell className="h-6 w-6" />
-              </Button>
+              <NotificationCenter />
             </div>
           </div>
         </div>

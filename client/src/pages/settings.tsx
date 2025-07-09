@@ -7,13 +7,16 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Upload, Image as ImageIcon, X } from "lucide-react";
+import { Upload, Image as ImageIcon, X, Building, Settings as SettingsIcon, Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import type { Settings } from "@shared/schema";
+import AdvancedSettings from "@/components/settings/advanced-settings";
+import MainLayout from "@/components/layout/main-layout";
 
 const settingsSchema = z.object({
   companyName: z.string().min(1, "Company name is required"),
@@ -34,6 +37,8 @@ export default function Settings() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [activeTab, setActiveTab] = useState("basic");
+  const [pendingChanges, setPendingChanges] = useState<Partial<Settings>>({});
 
   const { data: settings, isLoading } = useQuery<Settings>({
     queryKey: ["/api/settings"],
@@ -66,6 +71,27 @@ export default function Settings() {
       quoteTemplate: settings.quoteTemplate,
     });
   }
+
+  const handleSettingsChange = (field: string, value: any) => {
+    setPendingChanges(prev => ({ ...prev, [field]: value }));
+  };
+
+  const saveAdvancedSettings = async () => {
+    if (Object.keys(pendingChanges).length === 0) {
+      toast({
+        title: "No Changes",
+        description: "No changes to save",
+      });
+      return;
+    }
+
+    try {
+      await updateSettingsMutation.mutateAsync(pendingChanges);
+      setPendingChanges({});
+    } catch (error) {
+      // Error handling is done in the mutation
+    }
+  };
 
   const updateSettingsMutation = useMutation({
     mutationFn: (data: Partial<SettingsFormData> & { logoUrl?: string; logoFileName?: string }) =>
@@ -158,10 +184,36 @@ export default function Settings() {
   }
 
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold contractor-text-slate-900 mb-6">Settings</h1>
-      
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <MainLayout>
+      <div className="p-6">
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-2xl font-bold contractor-text-slate-900">Settings</h1>
+          {Object.keys(pendingChanges).length > 0 && (
+            <Button 
+              onClick={saveAdvancedSettings}
+              disabled={updateSettingsMutation.isPending}
+              className="bg-orange-600 hover:bg-orange-700"
+            >
+              <Save className="h-4 w-4 mr-2" />
+              Save Changes
+            </Button>
+          )}
+        </div>
+
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="basic" className="flex items-center gap-2">
+              <Building className="h-4 w-4" />
+              Basic Settings
+            </TabsTrigger>
+            <TabsTrigger value="advanced" className="flex items-center gap-2">
+              <SettingsIcon className="h-4 w-4" />
+              Advanced Settings
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="basic" className="mt-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Company Information */}
         <Card className="contractor-border-slate-200">
           <CardHeader>
@@ -375,7 +427,20 @@ export default function Settings() {
             </div>
           </CardContent>
         </Card>
+            </div>
+          </TabsContent>
+
+          <TabsContent value="advanced" className="mt-6">
+            {settings && (
+              <AdvancedSettings
+                settings={settings}
+                onSettingsChange={handleSettingsChange}
+                isLoading={updateSettingsMutation.isPending}
+              />
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
-    </div>
+    </MainLayout>
   );
 }

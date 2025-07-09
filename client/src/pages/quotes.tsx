@@ -12,6 +12,7 @@ import { Search, Plus, Edit, Trash2, Eye, Download, Mail, CheckCircle, XCircle }
 import { QuoteWithCustomer } from "@shared/schema";
 import { STATUS_COLORS } from "@/lib/constants";
 import QuoteBuilder from "@/components/quotes/quote-builder";
+import EmailSender from "@/components/email/email-sender";
 
 export default function Quotes() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -20,6 +21,10 @@ export default function Quotes() {
 
   const { data: quotes, isLoading } = useQuery<QuoteWithCustomer[]>({
     queryKey: ["/api/quotes"]
+  });
+
+  const { data: settings } = useQuery({
+    queryKey: ["/api/settings"]
   });
 
   const deleteQuoteMutation = useMutation({
@@ -201,13 +206,15 @@ export default function Quotes() {
                           <Button variant="ghost" size="sm">
                             <Download className="w-4 h-4" />
                           </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="sm"
-                            onClick={() => handleSendEmail(quote)}
-                          >
-                            <Mail className="w-4 h-4" />
-                          </Button>
+                          {settings && quote.customer.email && (
+                            <EmailSender
+                              customer={quote.customer}
+                              settings={settings}
+                              documentType="quote"
+                              documentNumber={quote.quoteNumber}
+                              onSend={() => handleSendEmail(quote)}
+                            />
+                          )}
                           {quote.status === 'sent' && (
                             <>
                               <Button 

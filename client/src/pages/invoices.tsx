@@ -12,6 +12,7 @@ import { Search, Plus, Edit, Trash2, Eye, Download, Mail } from "lucide-react";
 import { InvoiceWithCustomer } from "@shared/schema";
 import { STATUS_COLORS } from "@/lib/constants";
 import InvoiceBuilder from "@/components/invoices/invoice-builder";
+import EmailSender from "@/components/email/email-sender";
 
 export default function Invoices() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -20,6 +21,10 @@ export default function Invoices() {
 
   const { data: invoices, isLoading } = useQuery<InvoiceWithCustomer[]>({
     queryKey: ["/api/invoices"]
+  });
+
+  const { data: settings } = useQuery({
+    queryKey: ["/api/settings"]
   });
 
   const deleteInvoiceMutation = useMutation({
@@ -157,13 +162,15 @@ export default function Invoices() {
                           <Button variant="ghost" size="sm">
                             <Download className="w-4 h-4" />
                           </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="sm"
-                            onClick={() => handleSendEmail(invoice)}
-                          >
-                            <Mail className="w-4 h-4" />
-                          </Button>
+                          {settings && invoice.customer.email && (
+                            <EmailSender
+                              customer={invoice.customer}
+                              settings={settings}
+                              documentType="invoice"
+                              documentNumber={invoice.invoiceNumber}
+                              onSend={() => handleSendEmail(invoice)}
+                            />
+                          )}
                           <Button
                             variant="ghost"
                             size="sm"

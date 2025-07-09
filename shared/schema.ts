@@ -1,5 +1,5 @@
 import { pgTable, text, serial, integer, boolean, timestamp, decimal } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -72,18 +72,49 @@ export const quoteLineItems = pgTable("quote_line_items", {
   sortOrder: integer("sort_order").notNull().default(0),
 });
 
+export const notifications = pgTable("notifications", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  message: text("message").notNull(),
+  type: text("type").notNull().default("info"), // info, success, warning, error
+  isRead: boolean("is_read").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  relatedId: integer("related_id"), // ID of related invoice/quote/customer
+  relatedType: text("related_type"), // invoice, quote, customer
+});
+
 export const settings = pgTable("settings", {
   id: serial("id").primaryKey(),
   companyName: text("company_name").notNull().default("Your Company"),
   companyAddress: text("company_address").default(""),
   companyPhone: text("company_phone").default(""),
   companyEmail: text("company_email").default(""),
+  companyWebsite: text("company_website").default(""),
   logoUrl: text("logo_url"),
   logoFileName: text("logo_file_name"),
   defaultTaxRate: decimal("default_tax_rate", { precision: 5, scale: 2 }).notNull().default("0"),
   paymentTerms: text("payment_terms").default("Net 30"),
   invoiceTemplate: text("invoice_template").notNull().default("standard"),
   quoteTemplate: text("quote_template").notNull().default("standard"),
+  currency: text("currency").default("USD"),
+  dateFormat: text("date_format").default("MM/DD/YYYY"),
+  timeZone: text("time_zone").default("America/New_York"),
+  autoGenerateNumbers: boolean("auto_generate_numbers").default(true),
+  invoicePrefix: text("invoice_prefix").default("INV"),
+  quotePrefix: text("quote_prefix").default("QUO"),
+  nextInvoiceNumber: integer("next_invoice_number").default(1),
+  nextQuoteNumber: integer("next_quote_number").default(1),
+  brandColor: text("brand_color").default("#2563eb"),
+  accentColor: text("accent_color").default("#10b981"),
+  showLineItemTotals: boolean("show_line_item_totals").default(true),
+  requireProjectDescription: boolean("require_project_description").default(false),
+  defaultPaymentMethod: text("default_payment_method").default("Check"),
+  bankName: text("bank_name").default(""),
+  accountNumber: text("account_number").default(""),
+  routingNumber: text("routing_number").default(""),
+  emailSignature: text("email_signature").default(""),
+  invoiceFooter: text("invoice_footer").default(""),
+  quoteFooter: text("quote_footer").default(""),
 });
 
 // Insert schemas
@@ -93,6 +124,7 @@ export const insertInvoiceLineItemSchema = createInsertSchema(invoiceLineItems).
 export const insertQuoteSchema = createInsertSchema(quotes).omit({ id: true });
 export const insertQuoteLineItemSchema = createInsertSchema(quoteLineItems).omit({ id: true });
 export const insertSettingsSchema = createInsertSchema(settings).omit({ id: true });
+export const insertNotificationSchema = createInsertSchema(notifications).omit({ id: true, createdAt: true });
 
 // Types
 export type Customer = typeof customers.$inferSelect;
@@ -107,6 +139,8 @@ export type QuoteLineItem = typeof quoteLineItems.$inferSelect;
 export type InsertQuoteLineItem = z.infer<typeof insertQuoteLineItemSchema>;
 export type Settings = typeof settings.$inferSelect;
 export type InsertSettings = z.infer<typeof insertSettingsSchema>;
+export type Notification = typeof notifications.$inferSelect;
+export type InsertNotification = z.infer<typeof insertNotificationSchema>;
 
 // Extended types for API responses
 export type InvoiceWithCustomer = Invoice & {
