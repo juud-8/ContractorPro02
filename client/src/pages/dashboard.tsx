@@ -2,7 +2,9 @@ import { useQuery } from "@tanstack/react-query";
 import StatsCard from "@/components/dashboard/stats-card";
 import RecentInvoices from "@/components/dashboard/recent-invoices";
 import QuickActions from "@/components/dashboard/quick-actions";
-import { DollarSign, FileText, Clock, Users } from "lucide-react";
+import { DollarSign, FileText, Clock, Users, TrendingUp, UserCheck, BarChart3, CreditCard } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
 
 export default function Dashboard() {
   const { data: stats, isLoading: statsLoading } = useQuery({
@@ -17,11 +19,35 @@ export default function Dashboard() {
     queryKey: ["/api/quotes"]
   });
 
+  const { data: teams } = useQuery({
+    queryKey: ["/api/teams"]
+  });
+
+  const { data: expenses } = useQuery({
+    queryKey: ["/api/expenses"]
+  });
+
+  const { data: payments } = useQuery({
+    queryKey: ["/api/payments"]
+  });
+
   const recentInvoices = invoices?.slice(0, 5) || [];
   const recentQuotes = quotes?.slice(0, 3) || [];
+  
+  // Calculate additional metrics
+  const totalExpenses = expenses?.reduce((sum, exp) => sum + parseFloat(exp.amount), 0) || 0;
+  const netProfit = (stats?.totalRevenue || 0) - totalExpenses;
+  const profitMargin = stats?.totalRevenue ? ((netProfit / stats.totalRevenue) * 100).toFixed(1) : 0;
+  const totalPayments = payments?.length || 0;
 
   return (
     <div className="p-6">
+      {/* Welcome Section */}
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold contractor-text-slate-900">Dashboard</h1>
+        <p className="text-contractor-slate-600 mt-1">Welcome back! Here's an overview of your business</p>
+      </div>
+
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <StatsCard
@@ -56,6 +82,55 @@ export default function Dashboard() {
           iconBg="bg-purple-100"
           isLoading={statsLoading}
         />
+      </div>
+
+      {/* Financial Overview */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-sm font-medium">
+              <TrendingUp className="h-4 w-4" />
+              Net Profit
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">${netProfit.toLocaleString()}</div>
+            <p className="text-xs contractor-text-slate-600 mt-1">
+              Profit margin: {profitMargin}%
+            </p>
+            <Progress value={parseFloat(profitMargin)} className="mt-2" />
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-sm font-medium">
+              <UserCheck className="h-4 w-4" />
+              Teams
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{teams?.length || 0}</div>
+            <p className="text-xs contractor-text-slate-600 mt-1">
+              Active teams
+            </p>
+          </CardContent>
+        </Card>
+        
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center gap-2 text-sm font-medium">
+              <CreditCard className="h-4 w-4" />
+              Payments
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{totalPayments}</div>
+            <p className="text-xs contractor-text-slate-600 mt-1">
+              Total received
+            </p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Recent Activity & Quick Actions */}

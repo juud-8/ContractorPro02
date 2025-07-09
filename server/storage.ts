@@ -129,6 +129,10 @@ export interface IStorage {
   createTeamInvitation(invitation: InsertTeamInvitation): Promise<TeamInvitation>;
   acceptTeamInvitation(token: string): Promise<boolean>;
   deleteTeamInvitation(id: number): Promise<boolean>;
+  
+  // Team permissions
+  checkTeamPermission(teamId: number, userId: string, permission: string): Promise<boolean>;
+  updateTeamMemberPermissions(teamId: number, userId: string, permissions: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -883,6 +887,42 @@ export class DatabaseStorage implements IStorage {
     const result = await db
       .delete(teamInvitations)
       .where(eq(teamInvitations.id, id));
+    return (result.rowCount || 0) > 0;
+  }
+
+  async checkTeamPermission(teamId: number, userId: string, permission: string): Promise<boolean> {
+    const [member] = await db
+      .select()
+      .from(teamMembers)
+      .where(and(eq(teamMembers.teamId, teamId), eq(teamMembers.userId, userId)));
+    
+    if (!member) return false;
+    
+    // Owner has all permissions
+    if (member.role === "owner") return true;
+    
+    // Admin has most permissions except owner-specific ones
+    if (member.role === "admin" && permission !== "delete_team" && permission !== "transfer_ownership") {
+      return true;
+    }
+    
+    // Manager permissions
+    if (member.role === "manager") {
+      const managerPermissions = ["invite_members", "manage_tasks", "view_reports", "edit_projects"];
+      return managerPermissions.includes(permission);
+    }
+    
+    // Member permissions
+    const memberPermissions = ["view_team", "view_tasks", "create_tasks"];
+    return memberPermissions.includes(permission);
+  }
+
+  async updateTeamMemberPermissions(teamId: number, userId: string, permissions: string): Promise<boolean> {
+    const result = await db
+      .update(teamMembers)
+      .set({ permissions })
+      .where(and(eq(teamMembers.teamId, teamId), eq(teamMembers.userId, userId)));
+    
     return (result.rowCount || 0) > 0;
   }
 }
@@ -1643,6 +1683,16 @@ export class MemStorage implements IStorage {
   }
 
   async deleteTeamInvitation(id: number): Promise<boolean> {
+    return false;
+  }
+
+  async checkTeamPermission(teamId: number, userId: string, permission: string): Promise<boolean> {
+    // Stub implementation for memory storage
+    return true;
+  }
+
+  async updateTeamMemberPermissions(teamId: number, userId: string, permissions: string): Promise<boolean> {
+    // Stub implementation for memory storage
     return false;
   }
 }

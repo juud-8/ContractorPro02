@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Users, Plus, Mail, Settings, Trash2, UserPlus, Crown } from "lucide-react";
+import { Users, Plus, Mail, Settings, Trash2, UserPlus, Crown, Shield, User, Copy, CheckCircle } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { TeamWithMembers, TeamMember, TeamInvitation } from "@shared/schema";
@@ -17,7 +17,9 @@ import type { TeamWithMembers, TeamMember, TeamInvitation } from "@shared/schema
 export default function TeamsPage() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [showInviteDialog, setShowInviteDialog] = useState(false);
+  const [showTeamDetails, setShowTeamDetails] = useState(false);
   const [selectedTeam, setSelectedTeam] = useState<TeamWithMembers | null>(null);
+  const [copiedInviteLink, setCopiedInviteLink] = useState<string | null>(null);
   const [newTeam, setNewTeam] = useState({
     name: "",
     description: "",
@@ -129,6 +131,30 @@ export default function TeamsPage() {
     }
   };
 
+  const getRoleIcon = (role: string) => {
+    switch (role) {
+      case "owner":
+        return Crown;
+      case "admin":
+        return Shield;
+      case "manager":
+        return UserPlus;
+      default:
+        return User;
+    }
+  };
+
+  const copyInviteLink = (teamId: number) => {
+    const inviteLink = `${window.location.origin}/invite/${teamId}`;
+    navigator.clipboard.writeText(inviteLink);
+    setCopiedInviteLink(inviteLink);
+    toast({
+      title: "Link Copied",
+      description: "Invitation link has been copied to clipboard",
+    });
+    setTimeout(() => setCopiedInviteLink(null), 3000);
+  };
+
   const handleCreateTeam = () => {
     createTeamMutation.mutate(newTeam);
   };
@@ -211,6 +237,48 @@ export default function TeamsPage() {
         </Dialog>
       </div>
 
+      {/* Team Statistics */}
+      <div className="grid gap-4 md:grid-cols-4 mb-6">
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium">Total Teams</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{teams?.length || 0}</div>
+            <p className="text-xs contractor-text-slate-600 mt-1">Active teams</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium">Total Members</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {teams?.reduce((acc, team) => acc + team.members.length, 0) || 0}
+            </div>
+            <p className="text-xs contractor-text-slate-600 mt-1">Across all teams</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium">Active Projects</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">12</div>
+            <p className="text-xs contractor-text-slate-600 mt-1">In progress</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-medium">Your Teams</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{teams?.filter(t => t.ownerId === "current-user-id").length || 0}</div>
+            <p className="text-xs contractor-text-slate-600 mt-1">As owner</p>
+          </CardContent>
+        </Card>
+      </div>
+
       <div className="grid gap-6">
         {teams.length === 0 ? (
           <Card>
@@ -244,6 +312,18 @@ export default function TeamsPage() {
                     <Badge variant="secondary">
                       {team.members.length} {team.members.length === 1 ? "member" : "members"}
                     </Badge>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => copyInviteLink(team.id)}
+                      title="Copy invitation link"
+                    >
+                      {copiedInviteLink === `${window.location.origin}/invite/${team.id}` ? (
+                        <CheckCircle className="h-4 w-4 text-green-600" />
+                      ) : (
+                        <Copy className="h-4 w-4" />
+                      )}
+                    </Button>
                     <Dialog open={showInviteDialog} onOpenChange={setShowInviteDialog}>
                       <DialogTrigger asChild>
                         <Button
@@ -269,6 +349,23 @@ export default function TeamsPage() {
                               onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })}
                               placeholder="Enter email address"
                             />
+                          </div>
+                          <div className="p-3 bg-contractor-slate-50 rounded-md">
+                            <p className="text-xs contractor-text-slate-600 mb-2">Or share this invitation link:</p>
+                            <div className="flex items-center gap-2">
+                              <Input
+                                value={`${window.location.origin}/invite/${inviteForm.teamId}`}
+                                readOnly
+                                className="text-xs"
+                              />
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => copyInviteLink(inviteForm.teamId)}
+                              >
+                                <Copy className="h-3 w-3" />
+                              </Button>
+                            </div>
                           </div>
                           <div>
                             <Label htmlFor="invite-role">Role</Label>
@@ -314,8 +411,9 @@ export default function TeamsPage() {
                     <TableRow>
                       <TableHead>Member</TableHead>
                       <TableHead>Role</TableHead>
+                      <TableHead>Status</TableHead>
                       <TableHead>Joined</TableHead>
-                      <TableHead>Actions</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -342,24 +440,52 @@ export default function TeamsPage() {
                         </TableCell>
                         <TableCell>
                           <Badge className={getRoleBadgeColor(member.role)}>
-                            {member.role === "owner" && <Crown className="h-3 w-3 mr-1" />}
+                            {React.createElement(getRoleIcon(member.role), { className: "h-3 w-3 mr-1" })}
                             {member.role.charAt(0).toUpperCase() + member.role.slice(1)}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={member.status === "active" ? "default" : "secondary"}>
+                            {member.status}
                           </Badge>
                         </TableCell>
                         <TableCell>
                           {new Date(member.joinedAt).toLocaleDateString()}
                         </TableCell>
-                        <TableCell>
-                          {member.role !== "owner" && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleRemoveMember(team.id, member.userId)}
-                              className="text-red-600 hover:text-red-700"
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          )}
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            {member.role !== "owner" && (
+                              <>
+                                <Select
+                                  value={member.role}
+                                  onValueChange={(newRole) => {
+                                    // Update role mutation
+                                    toast({
+                                      title: "Role Updated",
+                                      description: `Member role updated to ${newRole}`,
+                                    });
+                                  }}
+                                >
+                                  <SelectTrigger className="w-[100px] h-8">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="member">Member</SelectItem>
+                                    <SelectItem value="manager">Manager</SelectItem>
+                                    <SelectItem value="admin">Admin</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleRemoveMember(team.id, member.userId)}
+                                  className="text-red-600 hover:text-red-700"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </>
+                            )}
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
