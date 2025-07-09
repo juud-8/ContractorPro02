@@ -134,6 +134,9 @@ The application is designed to be a single deployable unit that can run on platf
 - ✅ **Permission System**: Role-based access control with Owner, Admin, Manager, Member roles
 - ✅ **Team Invitations**: Email-based invitations with shareable links and expiration tracking
 - ✅ **UI Improvements**: Enhanced teams page with statistics, member avatars, and role management
+- ✅ **Parts/Items Management**: Complete inventory system for frequently used parts and materials
+- ✅ **Parts Database**: Comprehensive parts table with SKU, pricing, stock levels, and categories
+- ✅ **Sample Parts Data**: Pre-populated with common contractor items (lumber, electrical, plumbing, etc.)
 
 ### Current Status
 The application now includes:
@@ -160,3 +163,7 @@ The application now includes:
 - **Team Invitations**: Email invitations with shareable links and expiration dates
 - **Enhanced Dashboard**: Comprehensive business metrics with profit margins and team statistics
 - **Team Activity Tracking**: Monitor team member actions and collaboration
+- **Parts Inventory System**: Manage frequently used parts with SKU tracking, stock levels, and categories
+- **Quick Parts Selection**: Easy part search and selection for invoices and quotes
+- **Stock Management**: Track inventory levels with low stock alerts
+- **Labor Items**: Support for hourly labor rates alongside physical parts

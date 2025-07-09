@@ -12,7 +12,8 @@ import {
   insertExpenseSchema,
   insertTimeEntrySchema,
   insertTaskSchema,
-  insertNotificationSchema
+  insertNotificationSchema,
+  insertPartSchema
 } from "@shared/schema";
 import { z } from "zod";
 
@@ -665,6 +666,91 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting invitation:", error);
       res.status(500).json({ message: "Failed to delete invitation" });
+    }
+  });
+
+  // Parts routes
+  app.get("/api/parts", async (req, res) => {
+    try {
+      const parts = await storage.getParts();
+      res.json(parts);
+    } catch (error) {
+      console.error("Error fetching parts:", error);
+      res.status(500).json({ message: "Failed to fetch parts" });
+    }
+  });
+
+  app.get("/api/parts/search", async (req, res) => {
+    try {
+      const { q } = req.query;
+      if (!q || typeof q !== 'string') {
+        return res.status(400).json({ message: "Search query required" });
+      }
+      const parts = await storage.searchParts(q);
+      res.json(parts);
+    } catch (error) {
+      console.error("Error searching parts:", error);
+      res.status(500).json({ message: "Failed to search parts" });
+    }
+  });
+
+  app.get("/api/parts/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const part = await storage.getPart(id);
+      if (!part) {
+        return res.status(404).json({ message: "Part not found" });
+      }
+      res.json(part);
+    } catch (error) {
+      console.error("Error fetching part:", error);
+      res.status(500).json({ message: "Failed to fetch part" });
+    }
+  });
+
+  app.post("/api/parts", async (req, res) => {
+    try {
+      const validation = insertPartSchema.safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({ message: validation.error.message });
+      }
+      const part = await storage.createPart(validation.data);
+      res.json(part);
+    } catch (error) {
+      console.error("Error creating part:", error);
+      res.status(500).json({ message: "Failed to create part" });
+    }
+  });
+
+  app.put("/api/parts/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const validation = insertPartSchema.partial().safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({ message: validation.error.message });
+      }
+      const part = await storage.updatePart(id, validation.data);
+      if (!part) {
+        return res.status(404).json({ message: "Part not found" });
+      }
+      res.json(part);
+    } catch (error) {
+      console.error("Error updating part:", error);
+      res.status(500).json({ message: "Failed to update part" });
+    }
+  });
+
+  app.delete("/api/parts/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const success = await storage.deletePart(id);
+      if (!success) {
+        return res.status(404).json({ message: "Part not found" });
+      }
+      res.json({ message: "Part deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting part:", error);
+      res.status(500).json({ message: "Failed to delete part" });
     }
   });
 

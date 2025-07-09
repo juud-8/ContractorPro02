@@ -321,6 +321,26 @@ export type TeamMemberWithUser = TeamMember & {
   team: Team;
 };
 
+// Parts/Items
+export const parts = pgTable("parts", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  sku: varchar("sku", { length: 100 }),
+  unitPrice: decimal("unit_price", { precision: 10, scale: 2 }).notNull(),
+  category: varchar("category", { length: 100 }),
+  unit: varchar("unit", { length: 50 }).default("each"), // each, box, hour, etc.
+  inStock: integer("in_stock").default(0),
+  minimumStock: integer("minimum_stock").default(0),
+  taxable: boolean("taxable").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertPartSchema = createInsertSchema(parts).omit({ id: true, createdAt: true, updatedAt: true });
+export type Part = typeof parts.$inferSelect;
+export type InsertPart = z.infer<typeof insertPartSchema>;
+
 // Relations
 export const customersRelations = relations(customers, ({ many }) => ({
   invoices: many(invoices),

@@ -48,6 +48,9 @@ import {
   type InsertTeamInvitation,
   type TeamWithMembers,
   type TeamMemberWithUser,
+  parts,
+  type Part,
+  type InsertPart,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and } from "drizzle-orm";
@@ -133,6 +136,14 @@ export interface IStorage {
   // Team permissions
   checkTeamPermission(teamId: number, userId: string, permission: string): Promise<boolean>;
   updateTeamMemberPermissions(teamId: number, userId: string, permissions: string): Promise<boolean>;
+  
+  // Parts operations
+  getParts(): Promise<Part[]>;
+  getPart(id: number): Promise<Part | undefined>;
+  createPart(part: InsertPart): Promise<Part>;
+  updatePart(id: number, part: Partial<InsertPart>): Promise<Part | undefined>;
+  deletePart(id: number): Promise<boolean>;
+  searchParts(query: string): Promise<Part[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -925,6 +936,176 @@ export class DatabaseStorage implements IStorage {
     
     return (result.rowCount || 0) > 0;
   }
+
+  // Parts operations
+  async getParts(): Promise<Part[]> {
+    const allParts = await db.select().from(parts).orderBy(parts.name);
+    
+    // If no parts exist, create sample parts
+    if (allParts.length === 0) {
+      const sampleParts = [
+        {
+          name: "2x4 Lumber - 8ft",
+          description: "Standard framing lumber",
+          sku: "LUM-2X4-8",
+          unitPrice: "5.99",
+          category: "Lumber",
+          unit: "each",
+          inStock: 50,
+          minimumStock: 20,
+          taxable: true,
+        },
+        {
+          name: "Drywall Sheet 4x8",
+          description: "1/2 inch gypsum board",
+          sku: "DRY-4X8-12",
+          unitPrice: "12.50",
+          category: "Drywall",
+          unit: "each",
+          inStock: 30,
+          minimumStock: 10,
+          taxable: true,
+        },
+        {
+          name: "Electrical Outlet",
+          description: "Standard 15A duplex outlet",
+          sku: "ELEC-OUT-15",
+          unitPrice: "2.99",
+          category: "Electrical",
+          unit: "each",
+          inStock: 100,
+          minimumStock: 50,
+          taxable: true,
+        },
+        {
+          name: "PVC Pipe 2\"",
+          description: "2 inch PVC pipe - 10ft length",
+          sku: "PVC-2-10",
+          unitPrice: "8.99",
+          category: "Plumbing",
+          unit: "each",
+          inStock: 25,
+          minimumStock: 10,
+          taxable: true,
+        },
+        {
+          name: "Interior Paint",
+          description: "Premium interior latex paint - White",
+          sku: "PAINT-INT-W",
+          unitPrice: "35.99",
+          category: "Paint",
+          unit: "gallon",
+          inStock: 15,
+          minimumStock: 5,
+          taxable: true,
+        },
+        {
+          name: "Concrete Mix",
+          description: "80lb bag ready-mix concrete",
+          sku: "CONC-80LB",
+          unitPrice: "7.99",
+          category: "Concrete",
+          unit: "bag",
+          inStock: 40,
+          minimumStock: 20,
+          taxable: true,
+        },
+        {
+          name: "Roofing Shingles",
+          description: "Architectural shingles - bundle covers 33.3 sq ft",
+          sku: "ROOF-ARCH-BDL",
+          unitPrice: "42.99",
+          category: "Roofing",
+          unit: "bundle",
+          inStock: 60,
+          minimumStock: 30,
+          taxable: true,
+        },
+        {
+          name: "Labor - General",
+          description: "General construction labor",
+          sku: "LABOR-GEN",
+          unitPrice: "45.00",
+          category: "Labor",
+          unit: "hour",
+          inStock: 0,
+          minimumStock: 0,
+          taxable: false,
+        },
+        {
+          name: "Labor - Electrical",
+          description: "Licensed electrician labor",
+          sku: "LABOR-ELEC",
+          unitPrice: "85.00",
+          category: "Labor",
+          unit: "hour",
+          inStock: 0,
+          minimumStock: 0,
+          taxable: false,
+        },
+        {
+          name: "Labor - Plumbing",
+          description: "Licensed plumber labor",
+          sku: "LABOR-PLUMB",
+          unitPrice: "90.00",
+          category: "Labor",
+          unit: "hour",
+          inStock: 0,
+          minimumStock: 0,
+          taxable: false,
+        },
+      ];
+
+      for (const part of sampleParts) {
+        await this.createPart(part);
+      }
+      
+      return await db.select().from(parts).orderBy(parts.name);
+    }
+    
+    return allParts;
+  }
+
+  async getPart(id: number): Promise<Part | undefined> {
+    const [part] = await db.select().from(parts).where(eq(parts.id, id));
+    return part;
+  }
+
+  async createPart(insertPart: InsertPart): Promise<Part> {
+    const [part] = await db
+      .insert(parts)
+      .values(insertPart)
+      .returning();
+    return part;
+  }
+
+  async updatePart(id: number, updates: Partial<InsertPart>): Promise<Part | undefined> {
+    const [part] = await db
+      .update(parts)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(parts.id, id))
+      .returning();
+    return part;
+  }
+
+  async deletePart(id: number): Promise<boolean> {
+    const result = await db
+      .delete(parts)
+      .where(eq(parts.id, id));
+    return (result.rowCount || 0) > 0;
+  }
+
+  async searchParts(query: string): Promise<Part[]> {
+    // For now, return all parts and filter on the client side
+    // In production, you'd use a proper search query
+    const allParts = await this.getParts();
+    const lowerQuery = query.toLowerCase();
+    return allParts.filter(part => 
+      part.name.toLowerCase().includes(lowerQuery) ||
+      (part.description && part.description.toLowerCase().includes(lowerQuery)) ||
+      (part.sku && part.sku.toLowerCase().includes(lowerQuery))
+    );
+  }
 }
 
 export class MemStorage implements IStorage {
@@ -1694,6 +1875,44 @@ export class MemStorage implements IStorage {
   async updateTeamMemberPermissions(teamId: number, userId: string, permissions: string): Promise<boolean> {
     // Stub implementation for memory storage
     return false;
+  }
+
+  // Parts operations (stub implementations)
+  async getParts(): Promise<Part[]> {
+    return [];
+  }
+
+  async getPart(id: number): Promise<Part | undefined> {
+    return undefined;
+  }
+
+  async createPart(part: InsertPart): Promise<Part> {
+    return {
+      id: 1,
+      name: part.name,
+      description: part.description || null,
+      sku: part.sku || null,
+      unitPrice: part.unitPrice,
+      category: part.category || null,
+      unit: part.unit || "each",
+      inStock: part.inStock || 0,
+      minimumStock: part.minimumStock || 0,
+      taxable: part.taxable ?? true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+  }
+
+  async updatePart(id: number, part: Partial<InsertPart>): Promise<Part | undefined> {
+    return undefined;
+  }
+
+  async deletePart(id: number): Promise<boolean> {
+    return false;
+  }
+
+  async searchParts(query: string): Promise<Part[]> {
+    return [];
   }
 }
 

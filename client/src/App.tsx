@@ -16,6 +16,7 @@ import Reports from "@/pages/reports";
 import Settings from "@/pages/settings";
 import Notifications from "@/pages/notifications";
 import Teams from "@/pages/teams";
+import Parts from "@/pages/parts";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -34,6 +35,7 @@ function Router() {
         <Route path="/settings" component={Settings} />
         <Route path="/notifications" component={Notifications} />
         <Route path="/teams" component={Teams} />
+        <Route path="/parts" component={Parts} />
         <Route component={NotFound} />
       </Switch>
     </MainLayout>
