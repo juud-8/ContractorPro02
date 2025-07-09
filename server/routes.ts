@@ -512,6 +512,162 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Team management routes
+  app.get("/api/teams", async (req, res) => {
+    try {
+      const teams = await storage.getTeams();
+      res.json(teams);
+    } catch (error) {
+      console.error("Error fetching teams:", error);
+      res.status(500).json({ message: "Failed to fetch teams" });
+    }
+  });
+
+  app.get("/api/teams/:id", async (req, res) => {
+    try {
+      const team = await storage.getTeam(parseInt(req.params.id));
+      if (team) {
+        res.json(team);
+      } else {
+        res.status(404).json({ message: "Team not found" });
+      }
+    } catch (error) {
+      console.error("Error fetching team:", error);
+      res.status(500).json({ message: "Failed to fetch team" });
+    }
+  });
+
+  app.post("/api/teams", async (req, res) => {
+    try {
+      const team = await storage.createTeam(req.body);
+      res.json(team);
+    } catch (error) {
+      console.error("Error creating team:", error);
+      res.status(500).json({ message: "Failed to create team" });
+    }
+  });
+
+  app.put("/api/teams/:id", async (req, res) => {
+    try {
+      const team = await storage.updateTeam(parseInt(req.params.id), req.body);
+      if (team) {
+        res.json(team);
+      } else {
+        res.status(404).json({ message: "Team not found" });
+      }
+    } catch (error) {
+      console.error("Error updating team:", error);
+      res.status(500).json({ message: "Failed to update team" });
+    }
+  });
+
+  app.delete("/api/teams/:id", async (req, res) => {
+    try {
+      const success = await storage.deleteTeam(parseInt(req.params.id));
+      if (success) {
+        res.json({ success: true });
+      } else {
+        res.status(404).json({ message: "Team not found" });
+      }
+    } catch (error) {
+      console.error("Error deleting team:", error);
+      res.status(500).json({ message: "Failed to delete team" });
+    }
+  });
+
+  app.post("/api/teams/:id/members", async (req, res) => {
+    try {
+      const member = await storage.addTeamMember(req.body);
+      res.json(member);
+    } catch (error) {
+      console.error("Error adding team member:", error);
+      res.status(500).json({ message: "Failed to add team member" });
+    }
+  });
+
+  app.delete("/api/teams/:teamId/members/:userId", async (req, res) => {
+    try {
+      const success = await storage.removeTeamMember(
+        parseInt(req.params.teamId),
+        req.params.userId
+      );
+      if (success) {
+        res.json({ success: true });
+      } else {
+        res.status(404).json({ message: "Team member not found" });
+      }
+    } catch (error) {
+      console.error("Error removing team member:", error);
+      res.status(500).json({ message: "Failed to remove team member" });
+    }
+  });
+
+  app.put("/api/teams/:teamId/members/:userId/role", async (req, res) => {
+    try {
+      const success = await storage.updateTeamMemberRole(
+        parseInt(req.params.teamId),
+        req.params.userId,
+        req.body.role
+      );
+      if (success) {
+        res.json({ success: true });
+      } else {
+        res.status(404).json({ message: "Team member not found" });
+      }
+    } catch (error) {
+      console.error("Error updating team member role:", error);
+      res.status(500).json({ message: "Failed to update team member role" });
+    }
+  });
+
+  app.get("/api/teams/:id/invitations", async (req, res) => {
+    try {
+      const invitations = await storage.getTeamInvitations(parseInt(req.params.id));
+      res.json(invitations);
+    } catch (error) {
+      console.error("Error fetching team invitations:", error);
+      res.status(500).json({ message: "Failed to fetch team invitations" });
+    }
+  });
+
+  app.post("/api/teams/:id/invitations", async (req, res) => {
+    try {
+      const invitation = await storage.createTeamInvitation(req.body);
+      res.json(invitation);
+    } catch (error) {
+      console.error("Error creating team invitation:", error);
+      res.status(500).json({ message: "Failed to create team invitation" });
+    }
+  });
+
+  app.post("/api/invitations/:token/accept", async (req, res) => {
+    try {
+      const success = await storage.acceptTeamInvitation(req.params.token);
+      if (success) {
+        res.json({ success: true });
+      } else {
+        res.status(400).json({ message: "Invalid or expired invitation" });
+      }
+    } catch (error) {
+      console.error("Error accepting invitation:", error);
+      res.status(500).json({ message: "Failed to accept invitation" });
+    }
+  });
+
+  app.delete("/api/invitations/:id", async (req, res) => {
+    try {
+      const success = await storage.deleteTeamInvitation(parseInt(req.params.id));
+      if (success) {
+        res.json({ success: true });
+      } else {
+        res.status(404).json({ message: "Invitation not found" });
+      }
+    } catch (error) {
+      console.error("Error deleting invitation:", error);
+      res.status(500).json({ message: "Failed to delete invitation" });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

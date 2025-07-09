@@ -1,7 +1,31 @@
-import { pgTable, text, serial, integer, boolean, timestamp, decimal } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, decimal, varchar, jsonb, index } from "drizzle-orm/pg-core";
 import { relations, sql } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+
+// Session storage table.
+// (IMPORTANT) This table is mandatory for Replit Auth, don't drop it.
+export const sessions = pgTable(
+  "sessions",
+  {
+    sid: varchar("sid").primaryKey(),
+    sess: jsonb("sess").notNull(),
+    expire: timestamp("expire").notNull(),
+  },
+  (table) => [index("IDX_session_expire").on(table.expire)],
+);
+
+// User storage table.
+// (IMPORTANT) This table is mandatory for Replit Auth, don't drop it.
+export const users = pgTable("users", {
+  id: varchar("id").primaryKey().notNull(),
+  email: varchar("email").unique(),
+  firstName: varchar("first_name"),
+  lastName: varchar("last_name"),
+  profileImageUrl: varchar("profile_image_url"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
 
 export const customers = pgTable("customers", {
   id: serial("id").primaryKey(),
@@ -155,6 +179,39 @@ export const timeEntries = pgTable("time_entries", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Team management tables
+export const teams = pgTable("teams", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  ownerId: text("owner_id").notNull().references(() => users.id),
+  settings: text("settings").default("{}"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const teamMembers = pgTable("team_members", {
+  id: serial("id").primaryKey(),
+  teamId: integer("team_id").notNull().references(() => teams.id, { onDelete: "cascade" }),
+  userId: text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  role: text("role").notNull().default("member"), // owner, admin, member, viewer
+  permissions: text("permissions").default("{}"),
+  joinedAt: timestamp("joined_at").defaultNow(),
+  status: text("status").default("active"), // active, inactive, pending
+});
+
+export const teamInvitations = pgTable("team_invitations", {
+  id: serial("id").primaryKey(),
+  teamId: integer("team_id").notNull().references(() => teams.id, { onDelete: "cascade" }),
+  email: text("email").notNull(),
+  role: text("role").notNull().default("member"),
+  invitedBy: text("invited_by").notNull().references(() => users.id),
+  token: text("token").notNull().unique(),
+  status: text("status").default("pending"), // pending, accepted, expired
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 export const tasks = pgTable("tasks", {
   id: serial("id").primaryKey(),
   customerId: integer("customer_id").references(() => customers.id),
@@ -163,7 +220,9 @@ export const tasks = pgTable("tasks", {
   status: text("status").default("pending"), // pending, in_progress, completed, cancelled
   priority: text("priority").default("medium"), // low, medium, high, urgent
   dueDate: timestamp("due_date"),
-  assignedTo: text("assigned_to"), // team member name or ID
+  assignedTo: text("assigned_to").references(() => users.id),
+  createdBy: text("created_by").references(() => users.id),
+  teamId: integer("team_id").references(() => teams.id),
   estimatedHours: decimal("estimated_hours", { precision: 5, scale: 2 }),
   actualHours: decimal("actual_hours", { precision: 5, scale: 2 }),
   createdAt: timestamp("created_at").defaultNow(),
@@ -182,6 +241,13 @@ export const insertPaymentSchema = createInsertSchema(payments).omit({ id: true,
 export const insertExpenseSchema = createInsertSchema(expenses).omit({ id: true, createdAt: true });
 export const insertTimeEntrySchema = createInsertSchema(timeEntries).omit({ id: true, createdAt: true });
 export const insertTaskSchema = createInsertSchema(tasks).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertTeamSchema = createInsertSchema(teams).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertTeamMemberSchema = createInsertSchema(teamMembers).omit({ id: true, joinedAt: true });
+export const insertTeamInvitationSchema = createInsertSchema(teamInvitations).omit({ id: true, createdAt: true });
+
+// User schemas
+export type UpsertUser = typeof users.$inferInsert;
+export type User = typeof users.$inferSelect;
 
 // Types
 export type Customer = typeof customers.$inferSelect;
@@ -206,6 +272,12 @@ export type TimeEntry = typeof timeEntries.$inferSelect;
 export type InsertTimeEntry = z.infer<typeof insertTimeEntrySchema>;
 export type Task = typeof tasks.$inferSelect;
 export type InsertTask = z.infer<typeof insertTaskSchema>;
+export type Team = typeof teams.$inferSelect;
+export type InsertTeam = z.infer<typeof insertTeamSchema>;
+export type TeamMember = typeof teamMembers.$inferSelect;
+export type InsertTeamMember = z.infer<typeof insertTeamMemberSchema>;
+export type TeamInvitation = typeof teamInvitations.$inferSelect;
+export type InsertTeamInvitation = z.infer<typeof insertTeamInvitationSchema>;
 
 // Extended types for API responses
 export type InvoiceWithCustomer = Invoice & {
@@ -234,6 +306,19 @@ export type TimeEntryWithCustomer = TimeEntry & {
 
 export type TaskWithCustomer = Task & {
   customer?: Customer;
+  assignedUser?: User;
+  createdByUser?: User;
+  team?: Team;
+};
+
+export type TeamWithMembers = Team & {
+  members: (TeamMember & { user: User })[];
+  owner: User;
+};
+
+export type TeamMemberWithUser = TeamMember & {
+  user: User;
+  team: Team;
 };
 
 // Relations
@@ -315,3 +400,35 @@ export const tasksRelations = relations(tasks, ({ one }) => ({
 }));
 
 export const settingsRelations = relations(settings, ({ }) => ({}));
+
+export const teamsRelations = relations(teams, ({ one, many }) => ({
+  owner: one(users, {
+    fields: [teams.ownerId],
+    references: [users.id],
+  }),
+  members: many(teamMembers),
+  invitations: many(teamInvitations),
+  tasks: many(tasks),
+}));
+
+export const teamMembersRelations = relations(teamMembers, ({ one }) => ({
+  team: one(teams, {
+    fields: [teamMembers.teamId],
+    references: [teams.id],
+  }),
+  user: one(users, {
+    fields: [teamMembers.userId],
+    references: [users.id],
+  }),
+}));
+
+export const teamInvitationsRelations = relations(teamInvitations, ({ one }) => ({
+  team: one(teams, {
+    fields: [teamInvitations.teamId],
+    references: [teams.id],
+  }),
+  invitedByUser: one(users, {
+    fields: [teamInvitations.invitedBy],
+    references: [users.id],
+  }),
+}));

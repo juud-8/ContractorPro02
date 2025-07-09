@@ -12,7 +12,8 @@ import {
   Receipt,
   Clock,
   CheckSquare,
-  Bell
+  Bell,
+  UserCheck
 } from "lucide-react";
 
 interface SidebarProps {
@@ -30,6 +31,7 @@ const navigation = [
   { name: "Time Tracking", href: "/time-tracking", icon: Clock },
   { name: "Tasks", href: "/tasks", icon: CheckSquare },
   { name: "Reports", href: "/reports", icon: BarChart3 },
+  { name: "Teams", href: "/teams", icon: UserCheck },
   { name: "Notifications", href: "/notifications", icon: Bell },
   { name: "Settings", href: "/settings", icon: Settings },
 ];

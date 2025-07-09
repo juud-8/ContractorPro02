@@ -36,10 +36,21 @@ import {
   type QuoteWithCustomer,
   type ExpenseWithCustomer,
   type TimeEntryWithCustomer,
-  type TaskWithCustomer
+  type TaskWithCustomer,
+  teams,
+  teamMembers,
+  teamInvitations,
+  type Team,
+  type InsertTeam,
+  type TeamMember,
+  type InsertTeamMember,
+  type TeamInvitation,
+  type InsertTeamInvitation,
+  type TeamWithMembers,
+  type TeamMemberWithUser,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 
 export interface IStorage {
   // Customer operations
@@ -104,6 +115,20 @@ export interface IStorage {
   markNotificationAsRead(id: number): Promise<boolean>;
   markAllNotificationsAsRead(): Promise<boolean>;
   deleteNotification(id: number): Promise<boolean>;
+
+  // Team management operations
+  getTeams(): Promise<TeamWithMembers[]>;
+  getTeam(id: number): Promise<TeamWithMembers | undefined>;
+  createTeam(team: InsertTeam): Promise<TeamWithMembers>;
+  updateTeam(id: number, team: Partial<InsertTeam>): Promise<TeamWithMembers | undefined>;
+  deleteTeam(id: number): Promise<boolean>;
+  addTeamMember(teamMember: InsertTeamMember): Promise<TeamMemberWithUser>;
+  removeTeamMember(teamId: number, userId: string): Promise<boolean>;
+  updateTeamMemberRole(teamId: number, userId: string, role: string): Promise<boolean>;
+  getTeamInvitations(teamId: number): Promise<TeamInvitation[]>;
+  createTeamInvitation(invitation: InsertTeamInvitation): Promise<TeamInvitation>;
+  acceptTeamInvitation(token: string): Promise<boolean>;
+  deleteTeamInvitation(id: number): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -589,6 +614,9 @@ export class DatabaseStorage implements IStorage {
     return result.map(task => ({
       ...task,
       customer: task.customer || undefined,
+      assignedUser: undefined,
+      createdByUser: undefined,
+      team: undefined,
     }));
   }
 
@@ -608,6 +636,9 @@ export class DatabaseStorage implements IStorage {
     return {
       ...result!,
       customer: result!.customer || undefined,
+      assignedUser: undefined,
+      createdByUser: undefined,
+      team: undefined,
     };
   }
 
@@ -632,6 +663,9 @@ export class DatabaseStorage implements IStorage {
     return {
       ...result,
       customer: result.customer || undefined,
+      assignedUser: undefined,
+      createdByUser: undefined,
+      team: undefined,
     };
   }
 
@@ -675,6 +709,180 @@ export class DatabaseStorage implements IStorage {
     const result = await db
       .delete(notifications)
       .where(eq(notifications.id, id));
+    return (result.rowCount || 0) > 0;
+  }
+
+  // Team management operations
+  async getTeams(): Promise<TeamWithMembers[]> {
+    const result = await db.query.teams.findMany({
+      with: {
+        members: {
+          with: {
+            user: true,
+          },
+        },
+        owner: true,
+      },
+    });
+    return result;
+  }
+
+  async getTeam(id: number): Promise<TeamWithMembers | undefined> {
+    const result = await db.query.teams.findFirst({
+      where: eq(teams.id, id),
+      with: {
+        members: {
+          with: {
+            user: true,
+          },
+        },
+        owner: true,
+      },
+    });
+    return result;
+  }
+
+  async createTeam(insertTeam: InsertTeam): Promise<TeamWithMembers> {
+    const [team] = await db
+      .insert(teams)
+      .values(insertTeam)
+      .returning();
+    
+    // Add the owner as a team member
+    await db.insert(teamMembers).values({
+      teamId: team.id,
+      userId: insertTeam.ownerId,
+      role: "owner",
+      status: "active",
+    });
+
+    const result = await db.query.teams.findFirst({
+      where: eq(teams.id, team.id),
+      with: {
+        members: {
+          with: {
+            user: true,
+          },
+        },
+        owner: true,
+      },
+    });
+    
+    return result!;
+  }
+
+  async updateTeam(id: number, updates: Partial<InsertTeam>): Promise<TeamWithMembers | undefined> {
+    const [updated] = await db
+      .update(teams)
+      .set(updates)
+      .where(eq(teams.id, id))
+      .returning();
+    
+    if (!updated) return undefined;
+    
+    const result = await db.query.teams.findFirst({
+      where: eq(teams.id, id),
+      with: {
+        members: {
+          with: {
+            user: true,
+          },
+        },
+        owner: true,
+      },
+    });
+    
+    return result;
+  }
+
+  async deleteTeam(id: number): Promise<boolean> {
+    const result = await db
+      .delete(teams)
+      .where(eq(teams.id, id));
+    return (result.rowCount || 0) > 0;
+  }
+
+  async addTeamMember(insertTeamMember: InsertTeamMember): Promise<TeamMemberWithUser> {
+    const [member] = await db
+      .insert(teamMembers)
+      .values(insertTeamMember)
+      .returning();
+    
+    const result = await db.query.teamMembers.findFirst({
+      where: eq(teamMembers.id, member.id),
+      with: {
+        user: true,
+        team: true,
+      },
+    });
+    
+    return result!;
+  }
+
+  async removeTeamMember(teamId: number, userId: string): Promise<boolean> {
+    const result = await db
+      .delete(teamMembers)
+      .where(and(eq(teamMembers.teamId, teamId), eq(teamMembers.userId, userId)));
+    return (result.rowCount || 0) > 0;
+  }
+
+  async updateTeamMemberRole(teamId: number, userId: string, role: string): Promise<boolean> {
+    const result = await db
+      .update(teamMembers)
+      .set({ role })
+      .where(and(eq(teamMembers.teamId, teamId), eq(teamMembers.userId, userId)));
+    return (result.rowCount || 0) > 0;
+  }
+
+  async getTeamInvitations(teamId: number): Promise<TeamInvitation[]> {
+    return await db.select().from(teamInvitations).where(eq(teamInvitations.teamId, teamId));
+  }
+
+  async createTeamInvitation(insertInvitation: InsertTeamInvitation): Promise<TeamInvitation> {
+    const [invitation] = await db
+      .insert(teamInvitations)
+      .values(insertInvitation)
+      .returning();
+    return invitation;
+  }
+
+  async acceptTeamInvitation(token: string): Promise<boolean> {
+    const invitation = await db.query.teamInvitations.findFirst({
+      where: eq(teamInvitations.token, token),
+    });
+    
+    if (!invitation || invitation.status !== "pending") {
+      return false;
+    }
+    
+    // Check if invitation is expired
+    if (new Date() > invitation.expiresAt) {
+      await db.update(teamInvitations)
+        .set({ status: "expired" })
+        .where(eq(teamInvitations.id, invitation.id));
+      return false;
+    }
+    
+    // Add user to team
+    await db.insert(teamMembers).values({
+      teamId: invitation.teamId,
+      userId: invitation.email, // This would need to be resolved to actual user ID
+      role: invitation.role,
+      status: "active",
+    });
+    
+    // Mark invitation as accepted
+    await db.update(teamInvitations)
+      .set({ status: "accepted" })
+      .where(eq(teamInvitations.id, invitation.id));
+    
+    return true;
+  }
+
+  async deleteTeamInvitation(id: number): Promise<boolean> {
+    const result = await db
+      .delete(teamInvitations)
+      .where(eq(teamInvitations.id, id));
     return (result.rowCount || 0) > 0;
   }
 }
@@ -1343,6 +1551,11 @@ export class MemStorage implements IStorage {
       createdAt: new Date(),
       updatedAt: new Date(),
       customer: task.customerId ? this.customers.get(task.customerId) : undefined,
+      teamId: task.teamId ?? null,
+      createdBy: task.createdBy || null,
+      assignedUser: undefined,
+      createdByUser: undefined,
+      team: undefined,
     };
   }
 
@@ -1382,6 +1595,55 @@ export class MemStorage implements IStorage {
 
   async deleteNotification(id: number): Promise<boolean> {
     return true;
+  }
+
+  // Team management operations (stub implementations)
+  async getTeams(): Promise<TeamWithMembers[]> {
+    return [];
+  }
+
+  async getTeam(id: number): Promise<TeamWithMembers | undefined> {
+    return undefined;
+  }
+
+  async createTeam(team: InsertTeam): Promise<TeamWithMembers> {
+    throw new Error("Team management not implemented in memory storage");
+  }
+
+  async updateTeam(id: number, team: Partial<InsertTeam>): Promise<TeamWithMembers | undefined> {
+    return undefined;
+  }
+
+  async deleteTeam(id: number): Promise<boolean> {
+    return false;
+  }
+
+  async addTeamMember(teamMember: InsertTeamMember): Promise<TeamMemberWithUser> {
+    throw new Error("Team management not implemented in memory storage");
+  }
+
+  async removeTeamMember(teamId: number, userId: string): Promise<boolean> {
+    return false;
+  }
+
+  async updateTeamMemberRole(teamId: number, userId: string, role: string): Promise<boolean> {
+    return false;
+  }
+
+  async getTeamInvitations(teamId: number): Promise<TeamInvitation[]> {
+    return [];
+  }
+
+  async createTeamInvitation(invitation: InsertTeamInvitation): Promise<TeamInvitation> {
+    throw new Error("Team management not implemented in memory storage");
+  }
+
+  async acceptTeamInvitation(token: string): Promise<boolean> {
+    return false;
+  }
+
+  async deleteTeamInvitation(id: number): Promise<boolean> {
+    return false;
   }
 }
 
