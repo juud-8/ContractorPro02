@@ -1,0 +1,146 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: hsl(248, 50%, 98%);
+  --foreground: hsl(224, 33%, 10%);
+  --muted: hsl(220, 14%, 96%);
+  --muted-foreground: hsl(220, 9%, 45%);
+  --popover: hsl(0, 0%, 100%);
+  --popover-foreground: hsl(224, 33%, 10%);
+  --card: hsl(0, 0%, 100%);
+  --card-foreground: hsl(224, 33%, 10%);
+  --border: hsl(220, 13%, 91%);
+  --input: hsl(220, 13%, 91%);
+  --primary: hsl(214, 90%, 54%);
+  --primary-foreground: hsl(210, 100%, 99%);
+  --secondary: hsl(220, 14%, 96%);
+  --secondary-foreground: hsl(220, 9%, 10%);
+  --accent: hsl(220, 14%, 96%);
+  --accent-foreground: hsl(220, 9%, 10%);
+  --destructive: hsl(0, 84%, 60%);
+  --destructive-foreground: hsl(210, 100%, 99%);
+  --ring: hsl(224, 33%, 10%);
+  --radius: 0.5rem;
+  
+  /* Custom contractor theme colors */
+  --contractor-slate-50: hsl(210, 40%, 98%);
+  --contractor-slate-100: hsl(210, 40%, 96%);
+  --contractor-slate-200: hsl(214, 32%, 91%);
+  --contractor-slate-300: hsl(213, 27%, 84%);
+  --contractor-slate-400: hsl(215, 20%, 65%);
+  --contractor-slate-500: hsl(215, 16%, 47%);
+  --contractor-slate-600: hsl(215, 19%, 35%);
+  --contractor-slate-700: hsl(215, 25%, 27%);
+  --contractor-slate-800: hsl(217, 33%, 17%);
+  --contractor-slate-900: hsl(222, 84%, 5%);
+  
+  --contractor-primary-50: hsl(214, 100%, 97%);
+  --contractor-primary-500: hsl(214, 90%, 54%);
+  --contractor-primary-600: hsl(214, 95%, 45%);
+  --contractor-primary-700: hsl(214, 100%, 37%);
+  
+  --contractor-green-100: hsl(149, 80%, 90%);
+  --contractor-green-600: hsl(149, 80%, 37%);
+  --contractor-blue-100: hsl(214, 100%, 92%);
+  --contractor-blue-600: hsl(214, 90%, 54%);
+  --contractor-amber-100: hsl(48, 100%, 88%);
+  --contractor-amber-600: hsl(48, 100%, 47%);
+  --contractor-purple-100: hsl(270, 100%, 95%);
+  --contractor-purple-600: hsl(270, 95%, 60%);
+  --contractor-red-100: hsl(0, 100%, 95%);
+  --contractor-red-800: hsl(0, 84%, 60%);
+  --contractor-yellow-100: hsl(54, 100%, 88%);
+  --contractor-yellow-800: hsl(54, 100%, 37%);
+}
+
+.dark {
+  --background: hsl(224, 71%, 4%);
+  --foreground: hsl(210, 20%, 98%);
+  --muted: hsl(215, 28%, 17%);
+  --muted-foreground: hsl(217, 10%, 65%);
+  --popover: hsl(224, 71%, 4%);
+  --popover-foreground: hsl(210, 20%, 98%);
+  --card: hsl(224, 71%, 4%);
+  --card-foreground: hsl(210, 20%, 98%);
+  --border: hsl(215, 28%, 17%);
+  --input: hsl(215, 28%, 17%);
+  --primary: hsl(214, 90%, 54%);
+  --primary-foreground: hsl(210, 100%, 99%);
+  --secondary: hsl(215, 28%, 17%);
+  --secondary-foreground: hsl(210, 20%, 98%);
+  --accent: hsl(215, 28%, 17%);
+  --accent-foreground: hsl(210, 20%, 98%);
+  --destructive: hsl(0, 63%, 31%);
+  --destructive-foreground: hsl(210, 20%, 98%);
+  --ring: hsl(216, 12%, 84%);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-sans antialiased bg-background text-foreground;
+  }
+}
+
+@layer utilities {
+  .contractor-bg-slate-50 {
+    background-color: var(--contractor-slate-50);
+  }
+  
+  .contractor-bg-slate-100 {
+    background-color: var(--contractor-slate-100);
+  }
+  
+  .contractor-text-slate-400 {
+    color: var(--contractor-slate-400);
+  }
+  
+  .contractor-text-slate-500 {
+    color: var(--contractor-slate-500);
+  }
+  
+  .contractor-text-slate-600 {
+    color: var(--contractor-slate-600);
+  }
+  
+  .contractor-text-slate-700 {
+    color: var(--contractor-slate-700);
+  }
+  
+  .contractor-text-slate-900 {
+    color: var(--contractor-slate-900);
+  }
+  
+  .contractor-border-slate-200 {
+    border-color: var(--contractor-slate-200);
+  }
+  
+  .contractor-bg-primary-50 {
+    background-color: var(--contractor-primary-50);
+  }
+  
+  .contractor-bg-primary-500 {
+    background-color: var(--contractor-primary-500);
+  }
+  
+  .contractor-bg-primary-600 {
+    background-color: var(--contractor-primary-600);
+  }
+  
+  .contractor-text-primary-500 {
+    color: var(--contractor-primary-500);
+  }
+  
+  .contractor-text-primary-600 {
+    color: var(--contractor-primary-600);
+  }
+  
+  .contractor-text-primary-700 {
+    color: var(--contractor-primary-700);
+  }
+}
