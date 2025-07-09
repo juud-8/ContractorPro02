@@ -17,6 +17,8 @@ import {
   type InvoiceWithCustomer,
   type QuoteWithCustomer
 } from "@shared/schema";
+import { db } from "./db";
+import { eq } from "drizzle-orm";
 
 export interface IStorage {
   // Customer operations
@@ -47,6 +49,276 @@ export interface IStorage {
     overdue: number;
     activeCustomers: number;
   }>;
+}
+
+export class DatabaseStorage implements IStorage {
+  async getCustomers(): Promise<Customer[]> {
+    return await db.select().from(customers);
+  }
+
+  async getCustomer(id: number): Promise<Customer | undefined> {
+    const [customer] = await db.select().from(customers).where(eq(customers.id, id));
+    return customer || undefined;
+  }
+
+  async createCustomer(insertCustomer: InsertCustomer): Promise<Customer> {
+    const [customer] = await db
+      .insert(customers)
+      .values(insertCustomer)
+      .returning();
+    return customer;
+  }
+
+  async updateCustomer(id: number, updates: Partial<InsertCustomer>): Promise<Customer | undefined> {
+    const [customer] = await db
+      .update(customers)
+      .set(updates)
+      .where(eq(customers.id, id))
+      .returning();
+    return customer || undefined;
+  }
+
+  async deleteCustomer(id: number): Promise<boolean> {
+    const result = await db.delete(customers).where(eq(customers.id, id));
+    return (result.rowCount || 0) > 0;
+  }
+
+  async getInvoices(): Promise<InvoiceWithCustomer[]> {
+    const invoicesResult = await db
+      .select()
+      .from(invoices)
+      .leftJoin(customers, eq(invoices.customerId, customers.id));
+
+    const invoiceLineItemsResult = await db.select().from(invoiceLineItems);
+
+    return invoicesResult.map(row => ({
+      ...row.invoices,
+      customer: row.customers!,
+      lineItems: invoiceLineItemsResult.filter(item => item.invoiceId === row.invoices.id)
+    }));
+  }
+
+  async getInvoice(id: number): Promise<InvoiceWithCustomer | undefined> {
+    const [invoiceResult] = await db
+      .select()
+      .from(invoices)
+      .leftJoin(customers, eq(invoices.customerId, customers.id))
+      .where(eq(invoices.id, id));
+
+    if (!invoiceResult) return undefined;
+
+    const lineItems = await db
+      .select()
+      .from(invoiceLineItems)
+      .where(eq(invoiceLineItems.invoiceId, id));
+
+    return {
+      ...invoiceResult.invoices,
+      customer: invoiceResult.customers!,
+      lineItems
+    };
+  }
+
+  async createInvoice(insertInvoice: InsertInvoice, lineItems: InsertInvoiceLineItem[]): Promise<InvoiceWithCustomer> {
+    const [invoice] = await db
+      .insert(invoices)
+      .values(insertInvoice)
+      .returning();
+
+    const insertedLineItems = await db
+      .insert(invoiceLineItems)
+      .values(lineItems.map((item, index) => ({
+        ...item,
+        invoiceId: invoice.id,
+        sortOrder: item.sortOrder || index
+      })))
+      .returning();
+
+    const [customer] = await db
+      .select()
+      .from(customers)
+      .where(eq(customers.id, invoice.customerId));
+
+    return {
+      ...invoice,
+      customer,
+      lineItems: insertedLineItems
+    };
+  }
+
+  async updateInvoice(id: number, updates: Partial<InsertInvoice>, lineItems?: InsertInvoiceLineItem[]): Promise<InvoiceWithCustomer | undefined> {
+    const [invoice] = await db
+      .update(invoices)
+      .set(updates)
+      .where(eq(invoices.id, id))
+      .returning();
+
+    if (!invoice) return undefined;
+
+    if (lineItems) {
+      await db.delete(invoiceLineItems).where(eq(invoiceLineItems.invoiceId, id));
+      await db
+        .insert(invoiceLineItems)
+        .values(lineItems.map((item, index) => ({
+          ...item,
+          invoiceId: id,
+          sortOrder: item.sortOrder || index
+        })));
+    }
+
+    const [customer] = await db
+      .select()
+      .from(customers)
+      .where(eq(customers.id, invoice.customerId));
+
+    const updatedLineItems = await db
+      .select()
+      .from(invoiceLineItems)
+      .where(eq(invoiceLineItems.invoiceId, id));
+
+    return {
+      ...invoice,
+      customer,
+      lineItems: updatedLineItems
+    };
+  }
+
+  async deleteInvoice(id: number): Promise<boolean> {
+    await db.delete(invoiceLineItems).where(eq(invoiceLineItems.invoiceId, id));
+    const result = await db.delete(invoices).where(eq(invoices.id, id));
+    return (result.rowCount || 0) > 0;
+  }
+
+  async getQuotes(): Promise<QuoteWithCustomer[]> {
+    const quotesResult = await db
+      .select()
+      .from(quotes)
+      .leftJoin(customers, eq(quotes.customerId, customers.id));
+
+    const quoteLineItemsResult = await db.select().from(quoteLineItems);
+
+    return quotesResult.map(row => ({
+      ...row.quotes,
+      customer: row.customers!,
+      lineItems: quoteLineItemsResult.filter(item => item.quoteId === row.quotes.id)
+    }));
+  }
+
+  async getQuote(id: number): Promise<QuoteWithCustomer | undefined> {
+    const [quoteResult] = await db
+      .select()
+      .from(quotes)
+      .leftJoin(customers, eq(quotes.customerId, customers.id))
+      .where(eq(quotes.id, id));
+
+    if (!quoteResult) return undefined;
+
+    const lineItems = await db
+      .select()
+      .from(quoteLineItems)
+      .where(eq(quoteLineItems.quoteId, id));
+
+    return {
+      ...quoteResult.quotes,
+      customer: quoteResult.customers!,
+      lineItems
+    };
+  }
+
+  async createQuote(insertQuote: InsertQuote, lineItems: InsertQuoteLineItem[]): Promise<QuoteWithCustomer> {
+    const [quote] = await db
+      .insert(quotes)
+      .values(insertQuote)
+      .returning();
+
+    const insertedLineItems = await db
+      .insert(quoteLineItems)
+      .values(lineItems.map((item, index) => ({
+        ...item,
+        quoteId: quote.id,
+        sortOrder: item.sortOrder || index
+      })))
+      .returning();
+
+    const [customer] = await db
+      .select()
+      .from(customers)
+      .where(eq(customers.id, quote.customerId));
+
+    return {
+      ...quote,
+      customer,
+      lineItems: insertedLineItems
+    };
+  }
+
+  async updateQuote(id: number, updates: Partial<InsertQuote>, lineItems?: InsertQuoteLineItem[]): Promise<QuoteWithCustomer | undefined> {
+    const [quote] = await db
+      .update(quotes)
+      .set(updates)
+      .where(eq(quotes.id, id))
+      .returning();
+
+    if (!quote) return undefined;
+
+    if (lineItems) {
+      await db.delete(quoteLineItems).where(eq(quoteLineItems.quoteId, id));
+      await db
+        .insert(quoteLineItems)
+        .values(lineItems.map((item, index) => ({
+          ...item,
+          quoteId: id,
+          sortOrder: item.sortOrder || index
+        })));
+    }
+
+    const [customer] = await db
+      .select()
+      .from(customers)
+      .where(eq(customers.id, quote.customerId));
+
+    const updatedLineItems = await db
+      .select()
+      .from(quoteLineItems)
+      .where(eq(quoteLineItems.quoteId, id));
+
+    return {
+      ...quote,
+      customer,
+      lineItems: updatedLineItems
+    };
+  }
+
+  async deleteQuote(id: number): Promise<boolean> {
+    await db.delete(quoteLineItems).where(eq(quoteLineItems.quoteId, id));
+    const result = await db.delete(quotes).where(eq(quotes.id, id));
+    return (result.rowCount || 0) > 0;
+  }
+
+  async getStats(): Promise<{
+    totalRevenue: number;
+    pendingInvoices: number;
+    overdue: number;
+    activeCustomers: number;
+  }> {
+    const invoicesData = await db.select().from(invoices);
+    const customersData = await db.select().from(customers);
+    
+    const totalRevenue = invoicesData
+      .filter(inv => inv.status === 'paid')
+      .reduce((sum, inv) => sum + parseFloat(inv.total), 0);
+    
+    const pendingInvoices = invoicesData.filter(inv => inv.status === 'sent').length;
+    const overdue = invoicesData.filter(inv => inv.status === 'overdue').length;
+    const activeCustomers = customersData.filter(c => c.status === 'active').length;
+    
+    return {
+      totalRevenue,
+      pendingInvoices,
+      overdue,
+      activeCustomers
+    };
+  }
 }
 
 export class MemStorage implements IStorage {
@@ -538,4 +810,4 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();

@@ -1,4 +1,5 @@
 import { pgTable, text, serial, integer, boolean, timestamp, decimal } from "drizzle-orm/pg-core";
+import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -100,3 +101,39 @@ export type QuoteWithCustomer = Quote & {
   customer: Customer;
   lineItems: QuoteLineItem[];
 };
+
+// Relations
+export const customersRelations = relations(customers, ({ many }) => ({
+  invoices: many(invoices),
+  quotes: many(quotes),
+}));
+
+export const invoicesRelations = relations(invoices, ({ one, many }) => ({
+  customer: one(customers, {
+    fields: [invoices.customerId],
+    references: [customers.id],
+  }),
+  lineItems: many(invoiceLineItems),
+}));
+
+export const invoiceLineItemsRelations = relations(invoiceLineItems, ({ one }) => ({
+  invoice: one(invoices, {
+    fields: [invoiceLineItems.invoiceId],
+    references: [invoices.id],
+  }),
+}));
+
+export const quotesRelations = relations(quotes, ({ one, many }) => ({
+  customer: one(customers, {
+    fields: [quotes.customerId],
+    references: [customers.id],
+  }),
+  lineItems: many(quoteLineItems),
+}));
+
+export const quoteLineItemsRelations = relations(quoteLineItems, ({ one }) => ({
+  quote: one(quotes, {
+    fields: [quoteLineItems.quoteId],
+    references: [quotes.id],
+  }),
+}));

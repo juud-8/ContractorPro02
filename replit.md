@@ -22,10 +22,11 @@ Preferred communication style: Simple, everyday language.
 ### Backend Architecture
 - **Runtime**: Node.js with Express.js framework
 - **Language**: TypeScript with ES modules
-- **Database**: PostgreSQL with Drizzle ORM
-- **Database Provider**: Neon Database (serverless PostgreSQL)
+- **Database**: PostgreSQL with Drizzle ORM (DatabaseStorage implementation)
+- **Database Provider**: PostgreSQL (Replit-managed database)
 - **API Pattern**: RESTful API with JSON responses
 - **Development**: Hot reload with Vite middleware integration
+- **Storage Layer**: Abstracted interface with PostgreSQL implementation
 
 ### Database Schema
 The application uses four main entities:
@@ -115,12 +116,17 @@ The application is designed to be a single deployable unit that can run on platf
 - ✅ Added interactive charts using Recharts for data visualization
 - ✅ Implemented sample data for better application demonstration
 - ✅ Fixed all TypeScript compilation issues and improved data flow
+- ✅ **Database Integration**: Migrated from in-memory storage to PostgreSQL database
+- ✅ **Persistent Storage**: All data now stored in PostgreSQL with Drizzle ORM
+- ✅ **Database Schema**: Created tables for customers, invoices, quotes, and line items
+- ✅ **Sample Data**: Pre-populated database with realistic contractor data
 
 ### Current Status
 The application now includes:
 - **Complete Quote System**: Full CRUD operations, PDF generation, status management
 - **Advanced Reports**: Revenue analytics, customer insights, invoice tracking, growth metrics
 - **Professional UI**: Contractor-themed design with responsive layout
-- **Sample Data**: Pre-populated with realistic invoices, quotes, and customers for demonstration
+- **PostgreSQL Database**: Persistent storage with Drizzle ORM and proper relations
+- **Sample Data**: Pre-populated database with realistic invoices, quotes, and customers
 - **PDF Generation**: Both invoices and quotes can be exported as professional PDFs
 - **Data Visualization**: Interactive charts showing revenue trends, status distributions, and customer analytics
