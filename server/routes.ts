@@ -6,7 +6,8 @@ import {
   insertInvoiceSchema, 
   insertInvoiceLineItemSchema,
   insertQuoteSchema,
-  insertQuoteLineItemSchema
+  insertQuoteLineItemSchema,
+  insertSettingsSchema
 } from "@shared/schema";
 import { z } from "zod";
 
@@ -227,6 +228,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(stats);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch stats" });
+    }
+  });
+
+  // Settings routes
+  app.get("/api/settings", async (req, res) => {
+    try {
+      const settings = await storage.getSettings();
+      res.json(settings);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch settings" });
+    }
+  });
+
+  app.put("/api/settings", async (req, res) => {
+    try {
+      const settingsData = insertSettingsSchema.partial().parse(req.body);
+      const settings = await storage.updateSettings(settingsData);
+      res.json(settings);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid settings data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to update settings" });
     }
   });
 

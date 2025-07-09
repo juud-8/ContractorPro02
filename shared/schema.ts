@@ -72,12 +72,27 @@ export const quoteLineItems = pgTable("quote_line_items", {
   sortOrder: integer("sort_order").notNull().default(0),
 });
 
+export const settings = pgTable("settings", {
+  id: serial("id").primaryKey(),
+  companyName: text("company_name").notNull().default("Your Company"),
+  companyAddress: text("company_address").default(""),
+  companyPhone: text("company_phone").default(""),
+  companyEmail: text("company_email").default(""),
+  logoUrl: text("logo_url"),
+  logoFileName: text("logo_file_name"),
+  defaultTaxRate: decimal("default_tax_rate", { precision: 5, scale: 2 }).notNull().default("0"),
+  paymentTerms: text("payment_terms").default("Net 30"),
+  invoiceTemplate: text("invoice_template").notNull().default("standard"),
+  quoteTemplate: text("quote_template").notNull().default("standard"),
+});
+
 // Insert schemas
 export const insertCustomerSchema = createInsertSchema(customers).omit({ id: true });
 export const insertInvoiceSchema = createInsertSchema(invoices).omit({ id: true });
 export const insertInvoiceLineItemSchema = createInsertSchema(invoiceLineItems).omit({ id: true });
 export const insertQuoteSchema = createInsertSchema(quotes).omit({ id: true });
 export const insertQuoteLineItemSchema = createInsertSchema(quoteLineItems).omit({ id: true });
+export const insertSettingsSchema = createInsertSchema(settings).omit({ id: true });
 
 // Types
 export type Customer = typeof customers.$inferSelect;
@@ -90,6 +105,8 @@ export type Quote = typeof quotes.$inferSelect;
 export type InsertQuote = z.infer<typeof insertQuoteSchema>;
 export type QuoteLineItem = typeof quoteLineItems.$inferSelect;
 export type InsertQuoteLineItem = z.infer<typeof insertQuoteLineItemSchema>;
+export type Settings = typeof settings.$inferSelect;
+export type InsertSettings = z.infer<typeof insertSettingsSchema>;
 
 // Extended types for API responses
 export type InvoiceWithCustomer = Invoice & {
@@ -137,3 +154,5 @@ export const quoteLineItemsRelations = relations(quoteLineItems, ({ one }) => ({
     references: [quotes.id],
   }),
 }));
+
+export const settingsRelations = relations(settings, ({ }) => ({}));

@@ -1,4 +1,5 @@
-import { Customer } from "@shared/schema";
+import { Customer, Settings } from "@shared/schema";
+import { useQuery } from "@tanstack/react-query";
 
 interface QuotePreviewProps {
   quoteNumber: string;
@@ -32,18 +33,34 @@ export default function QuotePreview({
   total,
   notes,
 }: QuotePreviewProps) {
+  const { data: settings } = useQuery<Settings>({
+    queryKey: ["/api/settings"],
+  });
   return (
     <div className="bg-white border contractor-border-slate-200 rounded-lg p-6 text-sm">
       <div className="flex justify-between items-start mb-6">
         <div>
-          <div className="w-12 h-12 contractor-bg-primary-500 rounded-lg flex items-center justify-center mb-3">
-            <span className="text-white font-bold">DC</span>
-          </div>
-          <h3 className="font-bold contractor-text-slate-900">Doe Construction</h3>
+          {settings?.logoUrl && (
+            <img 
+              src={settings.logoUrl} 
+              alt="Company Logo" 
+              className="w-16 h-16 object-contain mb-3"
+            />
+          )}
+          {!settings?.logoUrl && (
+            <div className="w-12 h-12 contractor-bg-primary-500 rounded-lg flex items-center justify-center mb-3">
+              <span className="text-white font-bold">
+                {settings?.companyName?.charAt(0) || "C"}
+              </span>
+            </div>
+          )}
+          <h3 className="font-bold contractor-text-slate-900">
+            {settings?.companyName || "Your Company"}
+          </h3>
           <p className="contractor-text-slate-600 text-xs">
-            123 Main Street<br />
-            Anytown, ST 12345<br />
-            (555) 123-4567
+            {settings?.companyAddress || "123 Main Street"}<br />
+            {settings?.companyPhone && `${settings.companyPhone}<br />`}
+            {settings?.companyEmail && settings.companyEmail}
           </p>
         </div>
         <div className="text-right">

@@ -13,7 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Trash2, Plus } from "lucide-react";
 import InvoicePreview from "./invoice-preview";
 import { generateInvoicePDF } from "@/lib/pdf-generator";
-import { Customer } from "@shared/schema";
+import { Customer, Settings } from "@shared/schema";
 
 interface InvoiceBuilderProps {
   open: boolean;
@@ -49,6 +49,10 @@ export default function InvoiceBuilder({ open, onClose }: InvoiceBuilderProps) {
 
   const { data: customers } = useQuery<Customer[]>({
     queryKey: ["/api/customers"]
+  });
+
+  const { data: settings } = useQuery<Settings>({
+    queryKey: ["/api/settings"]
   });
 
   const createInvoiceMutation = useMutation({
@@ -212,6 +216,7 @@ export default function InvoiceBuilder({ open, onClose }: InvoiceBuilderProps) {
       showLineItems: formData.showLineItems,
       showLogo: formData.showLogo,
       showPaymentTerms: formData.showPaymentTerms,
+      settings,
     };
 
     generateInvoicePDF(invoiceData);

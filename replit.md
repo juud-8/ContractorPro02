@@ -120,6 +120,10 @@ The application is designed to be a single deployable unit that can run on platf
 - ✅ **Persistent Storage**: All data now stored in PostgreSQL with Drizzle ORM
 - ✅ **Database Schema**: Created tables for customers, invoices, quotes, and line items
 - ✅ **Sample Data**: Pre-populated database with realistic contractor data
+- ✅ **Settings System**: Complete company settings with logo upload functionality
+- ✅ **Logo Integration**: Logo appears in invoices, quotes, and PDF exports
+- ✅ **Company Information**: Customizable company details (name, address, phone, email)
+- ✅ **Invoice/Quote Templates**: Template selection options for different document styles
 
 ### Current Status
 The application now includes:
@@ -130,3 +134,6 @@ The application now includes:
 - **Sample Data**: Pre-populated database with realistic invoices, quotes, and customers
 - **PDF Generation**: Both invoices and quotes can be exported as professional PDFs
 - **Data Visualization**: Interactive charts showing revenue trends, status distributions, and customer analytics
+- **Settings Management**: Complete company settings with logo upload, tax rates, payment terms
+- **Logo Support**: Upload and display company logos in documents and PDFs
+- **Customizable Templates**: Different template options for invoices and quotes

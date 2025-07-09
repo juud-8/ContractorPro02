@@ -4,6 +4,7 @@ import {
   invoiceLineItems, 
   quotes, 
   quoteLineItems,
+  settings,
   type Customer, 
   type InsertCustomer, 
   type Invoice, 
@@ -14,6 +15,8 @@ import {
   type InsertQuote,
   type QuoteLineItem,
   type InsertQuoteLineItem,
+  type Settings,
+  type InsertSettings,
   type InvoiceWithCustomer,
   type QuoteWithCustomer
 } from "@shared/schema";
@@ -49,6 +52,10 @@ export interface IStorage {
     overdue: number;
     activeCustomers: number;
   }>;
+
+  // Settings operations
+  getSettings(): Promise<Settings>;
+  updateSettings(settings: Partial<InsertSettings>): Promise<Settings>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -318,6 +325,64 @@ export class DatabaseStorage implements IStorage {
       overdue,
       activeCustomers
     };
+  }
+
+  async getSettings(): Promise<Settings> {
+    let [settingsRecord] = await db.select().from(settings);
+    
+    if (!settingsRecord) {
+      // Create default settings if none exist
+      [settingsRecord] = await db
+        .insert(settings)
+        .values({
+          companyName: "Your Company",
+          companyAddress: "",
+          companyPhone: "",
+          companyEmail: "",
+          logoUrl: null,
+          logoFileName: null,
+          defaultTaxRate: "0",
+          paymentTerms: "Net 30",
+          invoiceTemplate: "standard",
+          quoteTemplate: "standard",
+        })
+        .returning();
+    }
+    
+    return settingsRecord;
+  }
+
+  async updateSettings(updates: Partial<InsertSettings>): Promise<Settings> {
+    let [settingsRecord] = await db.select().from(settings);
+    
+    if (!settingsRecord) {
+      // Create new settings if none exist
+      [settingsRecord] = await db
+        .insert(settings)
+        .values({
+          companyName: "Your Company",
+          companyAddress: "",
+          companyPhone: "",
+          companyEmail: "",
+          logoUrl: null,
+          logoFileName: null,
+          defaultTaxRate: "0",
+          paymentTerms: "Net 30",
+          invoiceTemplate: "standard",
+          quoteTemplate: "standard",
+          ...updates,
+        })
+        .returning();
+    } else {
+      // Update existing settings
+      [settingsRecord] = await db
+        .update(settings)
+        .set(updates)
+        .where(eq(settings.id, settingsRecord.id))
+        .returning();
+    }
+    
+    return settingsRecord;
   }
 }
 
@@ -806,6 +871,41 @@ export class MemStorage implements IStorage {
       pendingInvoices,
       overdue,
       activeCustomers
+    };
+  }
+
+  async getSettings(): Promise<Settings> {
+    // Mock settings for MemStorage
+    return {
+      id: 1,
+      companyName: "Your Company",
+      companyAddress: "",
+      companyPhone: "",
+      companyEmail: "",
+      logoUrl: null,
+      logoFileName: null,
+      defaultTaxRate: "0",
+      paymentTerms: "Net 30",
+      invoiceTemplate: "standard",
+      quoteTemplate: "standard",
+    };
+  }
+
+  async updateSettings(updates: Partial<InsertSettings>): Promise<Settings> {
+    // Mock update for MemStorage
+    return {
+      id: 1,
+      companyName: "Your Company",
+      companyAddress: "",
+      companyPhone: "",
+      companyEmail: "",
+      logoUrl: null,
+      logoFileName: null,
+      defaultTaxRate: "0",
+      paymentTerms: "Net 30",
+      invoiceTemplate: "standard",
+      quoteTemplate: "standard",
+      ...updates,
     };
   }
 }

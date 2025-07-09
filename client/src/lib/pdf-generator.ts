@@ -1,5 +1,5 @@
 import jsPDF from 'jspdf';
-import { Customer } from '@shared/schema';
+import { Customer, Settings } from '@shared/schema';
 
 interface InvoiceData {
   invoiceNumber: string;
@@ -21,6 +21,7 @@ interface InvoiceData {
   showLineItems: boolean;
   showLogo: boolean;
   showPaymentTerms: boolean;
+  settings?: Settings;
 }
 
 interface QuoteData {
@@ -40,6 +41,7 @@ interface QuoteData {
   taxAmount: number;
   total: number;
   notes?: string;
+  settings?: Settings;
 }
 
 export function generateInvoicePDF(invoiceData: InvoiceData) {
@@ -54,16 +56,20 @@ export function generateInvoicePDF(invoiceData: InvoiceData) {
     doc.rect(20, 20, 15, 15, 'F');
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(12);
-    doc.text('DC', 25, 30);
+    doc.text(invoiceData.settings?.companyName?.charAt(0) || 'C', 25, 30);
   }
   
   doc.setTextColor(0, 0, 0);
   doc.setFontSize(14);
-  doc.text('Doe Construction', 20, 45);
+  doc.text(invoiceData.settings?.companyName || 'Your Company', 20, 45);
   doc.setFontSize(10);
-  doc.text('123 Main Street', 20, 52);
-  doc.text('Anytown, ST 12345', 20, 58);
-  doc.text('(555) 123-4567', 20, 64);
+  doc.text(invoiceData.settings?.companyAddress || '123 Main Street', 20, 52);
+  if (invoiceData.settings?.companyPhone) {
+    doc.text(invoiceData.settings.companyPhone, 20, 58);
+  }
+  if (invoiceData.settings?.companyEmail) {
+    doc.text(invoiceData.settings.companyEmail, 20, 64);
+  }
   
   // Invoice title and number
   doc.setFontSize(20);
@@ -158,15 +164,19 @@ export function generateQuotePDF(quoteData: QuoteData) {
   doc.rect(20, 20, 15, 15, 'F');
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(12);
-  doc.text('DC', 25, 30);
+  doc.text(quoteData.settings?.companyName?.charAt(0) || 'C', 25, 30);
   
   doc.setTextColor(0, 0, 0);
   doc.setFontSize(14);
-  doc.text('Doe Construction', 20, 45);
+  doc.text(quoteData.settings?.companyName || 'Your Company', 20, 45);
   doc.setFontSize(10);
-  doc.text('123 Main Street', 20, 52);
-  doc.text('Anytown, ST 12345', 20, 58);
-  doc.text('(555) 123-4567', 20, 64);
+  doc.text(quoteData.settings?.companyAddress || '123 Main Street', 20, 52);
+  if (quoteData.settings?.companyPhone) {
+    doc.text(quoteData.settings.companyPhone, 20, 58);
+  }
+  if (quoteData.settings?.companyEmail) {
+    doc.text(quoteData.settings.companyEmail, 20, 64);
+  }
   
   // Quote title and number
   doc.setFontSize(20);

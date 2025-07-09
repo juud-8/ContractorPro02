@@ -12,7 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Trash2, Plus } from "lucide-react";
 import QuotePreview from "./quote-preview";
 import { generateQuotePDF } from "@/lib/pdf-generator";
-import { Customer } from "@shared/schema";
+import { Customer, Settings } from "@shared/schema";
 
 interface QuoteBuilderProps {
   open: boolean;
@@ -45,6 +45,10 @@ export default function QuoteBuilder({ open, onClose }: QuoteBuilderProps) {
 
   const { data: customers } = useQuery<Customer[]>({
     queryKey: ["/api/customers"]
+  });
+
+  const { data: settings } = useQuery<Settings>({
+    queryKey: ["/api/settings"]
   });
 
   const createQuoteMutation = useMutation({
@@ -206,6 +210,7 @@ export default function QuoteBuilder({ open, onClose }: QuoteBuilderProps) {
       taxAmount: calculateTax(),
       total: calculateTotal(),
       notes: formData.notes,
+      settings,
     };
 
     generateQuotePDF(quoteData);
