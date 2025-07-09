@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import Stripe from "stripe";
 import { 
   insertCustomerSchema, 
   insertInvoiceSchema, 
@@ -25,6 +26,14 @@ const invoiceCreateSchema = z.object({
 const quoteCreateSchema = z.object({
   quote: insertQuoteSchema,
   lineItems: z.array(insertQuoteLineItemSchema)
+});
+
+// Initialize Stripe
+if (!process.env.STRIPE_SECRET_KEY) {
+  throw new Error('Missing required Stripe secret: STRIPE_SECRET_KEY');
+}
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+  apiVersion: "2023-10-16",
 });
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -752,6 +761,142 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Error deleting part:", error);
       res.status(500).json({ message: "Failed to delete part" });
     }
+  });
+
+  // Stripe payment processing routes
+  app.post("/api/create-payment-intent", async (req, res) => {
+    try {
+      const { invoiceId, amount } = req.body;
+      
+      if (!invoiceId || !amount) {
+        return res.status(400).json({ message: "Invoice ID and amount are required" });
+      }
+
+      // Get the invoice to verify it exists
+      const invoice = await storage.getInvoice(invoiceId);
+      if (!invoice) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+
+      // Create payment intent
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: Math.round(parseFloat(amount) * 100), // Convert to cents
+        currency: "usd",
+        automatic_payment_methods: {
+          enabled: true,
+        },
+        metadata: {
+          invoiceId: invoiceId.toString(),
+          invoiceNumber: invoice.invoiceNumber,
+          customerName: invoice.customer.name,
+        },
+      });
+
+      res.json({ 
+        clientSecret: paymentIntent.client_secret,
+        paymentIntentId: paymentIntent.id 
+      });
+    } catch (error: any) {
+      console.error("Error creating payment intent:", error);
+      res.status(500).json({ message: "Error creating payment intent: " + error.message });
+    }
+  });
+
+  app.post("/api/confirm-payment", async (req, res) => {
+    try {
+      const { paymentIntentId, invoiceId } = req.body;
+      
+      if (!paymentIntentId || !invoiceId) {
+        return res.status(400).json({ message: "Payment Intent ID and Invoice ID are required" });
+      }
+
+      // Retrieve the payment intent from Stripe
+      const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+      
+      if (paymentIntent.status === 'succeeded') {
+        // Get the charge details
+        const charge = paymentIntent.charges.data[0];
+        
+        // Create payment record
+        const payment = await storage.createPayment({
+          invoiceId: parseInt(invoiceId),
+          amount: (paymentIntent.amount / 100).toString(), // Convert from cents
+          paymentMethod: "stripe",
+          paymentDate: new Date(),
+          reference: paymentIntent.id,
+          stripePaymentIntentId: paymentIntent.id,
+          stripeChargeId: charge.id,
+          stripeStatus: paymentIntent.status,
+          stripeCustomerId: paymentIntent.customer as string,
+          stripeFeeAmount: charge.application_fee_amount ? (charge.application_fee_amount / 100).toString() : null,
+        });
+
+        // Update invoice status to paid
+        await storage.updateInvoice(parseInt(invoiceId), { 
+          status: "paid",
+          paidDate: new Date()
+        });
+
+        res.json({ 
+          success: true, 
+          payment,
+          message: "Payment processed successfully" 
+        });
+      } else {
+        res.status(400).json({ 
+          message: "Payment not completed", 
+          status: paymentIntent.status 
+        });
+      }
+    } catch (error: any) {
+      console.error("Error confirming payment:", error);
+      res.status(500).json({ message: "Error confirming payment: " + error.message });
+    }
+  });
+
+  app.post("/api/stripe-webhook", async (req, res) => {
+    const sig = req.headers['stripe-signature'];
+    let event;
+
+    try {
+      // For webhook endpoint, you would need to configure webhook endpoint secret
+      // For now, we'll just parse the body
+      event = req.body;
+    } catch (err: any) {
+      console.error('Webhook signature verification failed:', err.message);
+      return res.status(400).send(`Webhook Error: ${err.message}`);
+    }
+
+    // Handle the event
+    switch (event.type) {
+      case 'payment_intent.succeeded':
+        const paymentIntent = event.data.object;
+        console.log('Payment succeeded:', paymentIntent.id);
+        
+        // Update payment record if needed
+        try {
+          const invoiceId = parseInt(paymentIntent.metadata.invoiceId);
+          if (invoiceId) {
+            await storage.updateInvoice(invoiceId, { 
+              status: "paid",
+              paidDate: new Date()
+            });
+          }
+        } catch (error) {
+          console.error('Error updating invoice from webhook:', error);
+        }
+        break;
+      
+      case 'payment_intent.payment_failed':
+        const failedPayment = event.data.object;
+        console.log('Payment failed:', failedPayment.id);
+        break;
+      
+      default:
+        console.log(`Unhandled event type ${event.type}`);
+    }
+
+    res.json({ received: true });
   });
 
   const httpServer = createServer(app);

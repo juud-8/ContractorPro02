@@ -79,6 +79,7 @@ export default function Payments() {
   const getPaymentMethodIcon = (method: string) => {
     switch (method) {
       case "card":
+      case "stripe":
         return <CreditCard className="h-4 w-4" />;
       case "bank_transfer":
         return <Building className="h-4 w-4" />;
@@ -92,6 +93,7 @@ export default function Payments() {
   const getPaymentMethodColor = (method: string) => {
     switch (method) {
       case "card":
+      case "stripe":
         return "bg-blue-100 text-blue-800";
       case "bank_transfer":
         return "bg-green-100 text-green-800";

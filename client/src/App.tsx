@@ -17,6 +17,8 @@ import Settings from "@/pages/settings";
 import Notifications from "@/pages/notifications";
 import Teams from "@/pages/teams";
 import Parts from "@/pages/parts";
+import PaymentCheckout from "@/pages/payment-checkout";
+import PaymentSuccess from "@/pages/payment-success";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -36,6 +38,8 @@ function Router() {
         <Route path="/notifications" component={Notifications} />
         <Route path="/teams" component={Teams} />
         <Route path="/parts" component={Parts} />
+        <Route path="/payment-checkout/:invoiceId" component={PaymentCheckout} />
+        <Route path="/payment-success" component={PaymentSuccess} />
         <Route component={NotFound} />
       </Switch>
     </MainLayout>

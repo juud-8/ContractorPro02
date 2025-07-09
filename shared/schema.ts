@@ -145,9 +145,14 @@ export const payments = pgTable("payments", {
   id: serial("id").primaryKey(),
   invoiceId: integer("invoice_id").references(() => invoices.id, { onDelete: "cascade" }),
   amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
-  paymentMethod: text("payment_method").notNull(), // cash, check, card, bank_transfer, paypal
+  paymentMethod: text("payment_method").notNull(), // cash, check, card, bank_transfer, paypal, stripe
   paymentDate: timestamp("payment_date").notNull(),
   reference: text("reference"), // check number, transaction ID, etc.
+  stripePaymentIntentId: text("stripe_payment_intent_id"), // Stripe Payment Intent ID
+  stripeChargeId: text("stripe_charge_id"), // Stripe Charge ID
+  stripeStatus: text("stripe_status"), // succeeded, pending, failed, canceled
+  stripeCustomerId: text("stripe_customer_id"), // Stripe Customer ID
+  stripeFeeAmount: decimal("stripe_fee_amount", { precision: 10, scale: 2 }), // Stripe processing fee
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),
 });

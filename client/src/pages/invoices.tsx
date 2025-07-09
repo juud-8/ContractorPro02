@@ -8,7 +8,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { queryClient } from "@/lib/queryClient";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
-import { Search, Plus, Edit, Trash2, Eye, Download, Mail } from "lucide-react";
+import { Search, Plus, Edit, Trash2, Eye, Download, Mail, CreditCard } from "lucide-react";
+import { useLocation } from "wouter";
 import { InvoiceWithCustomer } from "@shared/schema";
 import { STATUS_COLORS } from "@/lib/constants";
 import InvoiceBuilder from "@/components/invoices/invoice-builder";
@@ -18,6 +19,7 @@ export default function Invoices() {
   const [searchTerm, setSearchTerm] = useState("");
   const [invoiceBuilderOpen, setInvoiceBuilderOpen] = useState(false);
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
 
   const { data: invoices, isLoading } = useQuery<InvoiceWithCustomer[]>({
     queryKey: ["/api/invoices"]
@@ -66,6 +68,18 @@ export default function Invoices() {
       title: "Email Sent",
       description: `Invoice ${invoice.invoiceNumber} has been sent to ${invoice.customer.email}`,
     });
+  };
+
+  const handlePayInvoice = (invoice: InvoiceWithCustomer) => {
+    if (invoice.status === 'paid') {
+      toast({
+        title: "Already Paid",
+        description: "This invoice has already been paid",
+        variant: "destructive",
+      });
+      return;
+    }
+    setLocation(`/payment-checkout/${invoice.id}`);
   };
 
   if (isLoading) {
@@ -170,6 +184,17 @@ export default function Invoices() {
                               documentNumber={invoice.invoiceNumber}
                               onSend={() => handleSendEmail(invoice)}
                             />
+                          )}
+                          {invoice.status !== 'paid' && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handlePayInvoice(invoice)}
+                              className="text-green-600 hover:text-green-700"
+                              title="Pay Invoice"
+                            >
+                              <CreditCard className="w-4 h-4" />
+                            </Button>
                           )}
                           <Button
                             variant="ghost"
