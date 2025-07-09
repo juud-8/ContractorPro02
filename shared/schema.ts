@@ -326,6 +326,63 @@ export type TeamMemberWithUser = TeamMember & {
   team: Team;
 };
 
+// Recurring Payments and Subscriptions
+export const recurringPayments = pgTable("recurring_payments", {
+  id: serial("id").primaryKey(),
+  customerId: integer("customer_id").references(() => customers.id).notNull(),
+  name: text("name").notNull(),
+  description: text("description"),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  interval: text("interval").notNull(), // daily, weekly, monthly, yearly
+  intervalCount: integer("interval_count").notNull().default(1), // e.g., every 2 months
+  startDate: timestamp("start_date").notNull(),
+  endDate: timestamp("end_date"), // null for ongoing
+  nextPaymentDate: timestamp("next_payment_date").notNull(),
+  status: text("status").notNull().default("active"), // active, paused, cancelled, completed
+  stripeSubscriptionId: text("stripe_subscription_id"),
+  stripePriceId: text("stripe_price_id"),
+  paymentMethod: text("payment_method").notNull().default("card"),
+  taxRate: decimal("tax_rate", { precision: 5, scale: 2 }).notNull().default("0"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Payment Plans
+export const paymentPlans = pgTable("payment_plans", {
+  id: serial("id").primaryKey(),
+  invoiceId: integer("invoice_id").references(() => invoices.id).notNull(),
+  customerId: integer("customer_id").references(() => customers.id).notNull(),
+  planName: text("plan_name").notNull(),
+  totalAmount: decimal("total_amount", { precision: 10, scale: 2 }).notNull(),
+  numberOfPayments: integer("number_of_payments").notNull(),
+  paymentInterval: text("payment_interval").notNull(), // weekly, biweekly, monthly
+  firstPaymentAmount: decimal("first_payment_amount", { precision: 10, scale: 2 }),
+  regularPaymentAmount: decimal("regular_payment_amount", { precision: 10, scale: 2 }).notNull(),
+  startDate: timestamp("start_date").notNull(),
+  status: text("status").notNull().default("active"), // active, completed, cancelled, overdue
+  stripeSetupIntentId: text("stripe_setup_intent_id"),
+  stripePaymentMethodId: text("stripe_payment_method_id"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Payment Plan Installments
+export const paymentPlanInstallments = pgTable("payment_plan_installments", {
+  id: serial("id").primaryKey(),
+  paymentPlanId: integer("payment_plan_id").references(() => paymentPlans.id, { onDelete: "cascade" }).notNull(),
+  installmentNumber: integer("installment_number").notNull(),
+  amount: decimal("amount", { precision: 10, scale: 2 }).notNull(),
+  dueDate: timestamp("due_date").notNull(),
+  status: text("status").notNull().default("pending"), // pending, paid, overdue, cancelled
+  paidDate: timestamp("paid_date"),
+  paymentId: integer("payment_id").references(() => payments.id),
+  stripePaymentIntentId: text("stripe_payment_intent_id"),
+  reminderSent: boolean("reminder_sent").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Parts/Items
 export const parts = pgTable("parts", {
   id: serial("id").primaryKey(),
@@ -343,8 +400,33 @@ export const parts = pgTable("parts", {
 });
 
 export const insertPartSchema = createInsertSchema(parts).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertRecurringPaymentSchema = createInsertSchema(recurringPayments).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertPaymentPlanSchema = createInsertSchema(paymentPlans).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertPaymentPlanInstallmentSchema = createInsertSchema(paymentPlanInstallments).omit({ id: true, createdAt: true });
+
 export type Part = typeof parts.$inferSelect;
 export type InsertPart = z.infer<typeof insertPartSchema>;
+export type RecurringPayment = typeof recurringPayments.$inferSelect;
+export type InsertRecurringPayment = z.infer<typeof insertRecurringPaymentSchema>;
+export type PaymentPlan = typeof paymentPlans.$inferSelect;
+export type InsertPaymentPlan = z.infer<typeof insertPaymentPlanSchema>;
+export type PaymentPlanInstallment = typeof paymentPlanInstallments.$inferSelect;
+export type InsertPaymentPlanInstallment = z.infer<typeof insertPaymentPlanInstallmentSchema>;
+
+// Extended types for the new features
+export type RecurringPaymentWithCustomer = RecurringPayment & {
+  customer: Customer;
+};
+
+export type PaymentPlanWithDetails = PaymentPlan & {
+  customer: Customer;
+  invoice: Invoice;
+  installments: PaymentPlanInstallment[];
+};
+
+export type PaymentPlanInstallmentWithPayment = PaymentPlanInstallment & {
+  payment?: Payment;
+};
 
 // Relations
 export const customersRelations = relations(customers, ({ many }) => ({
@@ -353,6 +435,8 @@ export const customersRelations = relations(customers, ({ many }) => ({
   expenses: many(expenses),
   timeEntries: many(timeEntries),
   tasks: many(tasks),
+  recurringPayments: many(recurringPayments),
+  paymentPlans: many(paymentPlans),
 }));
 
 export const invoicesRelations = relations(invoices, ({ one, many }) => ({
@@ -364,6 +448,7 @@ export const invoicesRelations = relations(invoices, ({ one, many }) => ({
   payments: many(payments),
   expenses: many(expenses),
   timeEntries: many(timeEntries),
+  paymentPlans: many(paymentPlans),
 }));
 
 export const invoiceLineItemsRelations = relations(invoiceLineItems, ({ one }) => ({
@@ -392,6 +477,36 @@ export const paymentsRelations = relations(payments, ({ one }) => ({
   invoice: one(invoices, {
     fields: [payments.invoiceId],
     references: [invoices.id],
+  }),
+}));
+
+export const recurringPaymentsRelations = relations(recurringPayments, ({ one }) => ({
+  customer: one(customers, {
+    fields: [recurringPayments.customerId],
+    references: [customers.id],
+  }),
+}));
+
+export const paymentPlansRelations = relations(paymentPlans, ({ one, many }) => ({
+  customer: one(customers, {
+    fields: [paymentPlans.customerId],
+    references: [customers.id],
+  }),
+  invoice: one(invoices, {
+    fields: [paymentPlans.invoiceId],
+    references: [invoices.id],
+  }),
+  installments: many(paymentPlanInstallments),
+}));
+
+export const paymentPlanInstallmentsRelations = relations(paymentPlanInstallments, ({ one }) => ({
+  paymentPlan: one(paymentPlans, {
+    fields: [paymentPlanInstallments.paymentPlanId],
+    references: [paymentPlans.id],
+  }),
+  payment: one(payments, {
+    fields: [paymentPlanInstallments.paymentId],
+    references: [payments.id],
   }),
 }));
 

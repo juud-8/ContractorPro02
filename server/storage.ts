@@ -51,9 +51,21 @@ import {
   parts,
   type Part,
   type InsertPart,
+  recurringPayments,
+  type RecurringPayment,
+  type InsertRecurringPayment,
+  type RecurringPaymentWithCustomer,
+  paymentPlans,
+  type PaymentPlan,
+  type InsertPaymentPlan,
+  type PaymentPlanWithDetails,
+  paymentPlanInstallments,
+  type PaymentPlanInstallment,
+  type InsertPaymentPlanInstallment,
+  type PaymentPlanInstallmentWithPayment,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, lt, lte } from "drizzle-orm";
 
 export interface IStorage {
   // Customer operations
@@ -144,6 +156,24 @@ export interface IStorage {
   updatePart(id: number, part: Partial<InsertPart>): Promise<Part | undefined>;
   deletePart(id: number): Promise<boolean>;
   searchParts(query: string): Promise<Part[]>;
+
+  // Recurring payment operations
+  getRecurringPayments(): Promise<RecurringPaymentWithCustomer[]>;
+  getRecurringPayment(id: number): Promise<RecurringPaymentWithCustomer | undefined>;
+  createRecurringPayment(recurringPayment: InsertRecurringPayment): Promise<RecurringPaymentWithCustomer>;
+  updateRecurringPayment(id: number, recurringPayment: Partial<InsertRecurringPayment>): Promise<RecurringPaymentWithCustomer | undefined>;
+  deleteRecurringPayment(id: number): Promise<boolean>;
+  processRecurringPayments(): Promise<number>; // Returns number of payments processed
+
+  // Payment plan operations
+  getPaymentPlans(): Promise<PaymentPlanWithDetails[]>;
+  getPaymentPlan(id: number): Promise<PaymentPlanWithDetails | undefined>;
+  createPaymentPlan(paymentPlan: InsertPaymentPlan, installments: InsertPaymentPlanInstallment[]): Promise<PaymentPlanWithDetails>;
+  updatePaymentPlan(id: number, paymentPlan: Partial<InsertPaymentPlan>): Promise<PaymentPlanWithDetails | undefined>;
+  deletePaymentPlan(id: number): Promise<boolean>;
+  getPaymentPlanByInvoice(invoiceId: number): Promise<PaymentPlanWithDetails | undefined>;
+  processPaymentPlanInstallment(installmentId: number, paymentIntentId: string): Promise<boolean>;
+  getOverdueInstallments(): Promise<PaymentPlanInstallmentWithPayment[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1106,6 +1136,288 @@ export class DatabaseStorage implements IStorage {
       (part.sku && part.sku.toLowerCase().includes(lowerQuery))
     );
   }
+
+  // Recurring payment operations
+  async getRecurringPayments(): Promise<RecurringPaymentWithCustomer[]> {
+    const results = await db.query.recurringPayments.findMany({
+      with: {
+        customer: true,
+      },
+      orderBy: (recurringPayments, { desc }) => [desc(recurringPayments.createdAt)],
+    });
+    return results;
+  }
+
+  async getRecurringPayment(id: number): Promise<RecurringPaymentWithCustomer | undefined> {
+    const result = await db.query.recurringPayments.findFirst({
+      where: eq(recurringPayments.id, id),
+      with: {
+        customer: true,
+      },
+    });
+    return result;
+  }
+
+  async createRecurringPayment(insertRecurringPayment: InsertRecurringPayment): Promise<RecurringPaymentWithCustomer> {
+    const [recurringPayment] = await db
+      .insert(recurringPayments)
+      .values(insertRecurringPayment)
+      .returning();
+    
+    const result = await this.getRecurringPayment(recurringPayment.id);
+    return result!;
+  }
+
+  async updateRecurringPayment(id: number, updates: Partial<InsertRecurringPayment>): Promise<RecurringPaymentWithCustomer | undefined> {
+    const [recurringPayment] = await db
+      .update(recurringPayments)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(recurringPayments.id, id))
+      .returning();
+    
+    if (!recurringPayment) return undefined;
+    return await this.getRecurringPayment(recurringPayment.id);
+  }
+
+  async deleteRecurringPayment(id: number): Promise<boolean> {
+    const result = await db
+      .delete(recurringPayments)
+      .where(eq(recurringPayments.id, id));
+    return (result.rowCount || 0) > 0;
+  }
+
+  async processRecurringPayments(): Promise<number> {
+    // Get all active recurring payments with nextPaymentDate <= now
+    const now = new Date();
+    const duePayments = await db.query.recurringPayments.findMany({
+      where: and(
+        eq(recurringPayments.status, "active"),
+        lte(recurringPayments.nextPaymentDate, now)
+      ),
+      with: {
+        customer: true,
+      },
+    });
+
+    let processed = 0;
+    for (const recurringPayment of duePayments) {
+      try {
+        // Create an invoice for this recurring payment
+        const invoice = await this.createInvoice({
+          customerId: recurringPayment.customerId,
+          projectDescription: recurringPayment.name,
+          status: "sent",
+          subtotal: recurringPayment.amount,
+          taxRate: recurringPayment.taxRate,
+          taxAmount: (parseFloat(recurringPayment.amount) * parseFloat(recurringPayment.taxRate) / 100).toFixed(2),
+          total: (parseFloat(recurringPayment.amount) * (1 + parseFloat(recurringPayment.taxRate) / 100)).toFixed(2),
+          dueDate: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+          issueDate: now,
+          notes: `Recurring payment: ${recurringPayment.description || ''}`,
+        }, [{
+          description: recurringPayment.name,
+          quantity: "1",
+          rate: recurringPayment.amount,
+          amount: recurringPayment.amount,
+        }]);
+
+        // Calculate next payment date based on interval
+        let nextDate = new Date(recurringPayment.nextPaymentDate);
+        switch (recurringPayment.interval) {
+          case "daily":
+            nextDate.setDate(nextDate.getDate() + recurringPayment.intervalCount);
+            break;
+          case "weekly":
+            nextDate.setDate(nextDate.getDate() + (7 * recurringPayment.intervalCount));
+            break;
+          case "monthly":
+            nextDate.setMonth(nextDate.getMonth() + recurringPayment.intervalCount);
+            break;
+          case "yearly":
+            nextDate.setFullYear(nextDate.getFullYear() + recurringPayment.intervalCount);
+            break;
+        }
+
+        // Update the recurring payment with new next payment date
+        await db
+          .update(recurringPayments)
+          .set({ 
+            nextPaymentDate: nextDate,
+            updatedAt: new Date(),
+          })
+          .where(eq(recurringPayments.id, recurringPayment.id));
+
+        // Create a notification
+        await this.createNotification({
+          title: "Recurring Payment Processed",
+          message: `Invoice created for ${recurringPayment.name} - ${recurringPayment.customer.name}`,
+          type: "success",
+          relatedId: invoice.id,
+          relatedType: "invoice",
+        });
+
+        processed++;
+      } catch (error) {
+        console.error(`Failed to process recurring payment ${recurringPayment.id}:`, error);
+        await this.createNotification({
+          title: "Recurring Payment Failed",
+          message: `Failed to create invoice for ${recurringPayment.name}`,
+          type: "error",
+          relatedId: recurringPayment.id,
+          relatedType: "recurring_payment",
+        });
+      }
+    }
+
+    return processed;
+  }
+
+  // Payment plan operations
+  async getPaymentPlans(): Promise<PaymentPlanWithDetails[]> {
+    const results = await db.query.paymentPlans.findMany({
+      with: {
+        customer: true,
+        invoice: true,
+        installments: {
+          orderBy: (installments, { asc }) => [asc(installments.installmentNumber)],
+        },
+      },
+      orderBy: (paymentPlans, { desc }) => [desc(paymentPlans.createdAt)],
+    });
+    return results;
+  }
+
+  async getPaymentPlan(id: number): Promise<PaymentPlanWithDetails | undefined> {
+    const result = await db.query.paymentPlans.findFirst({
+      where: eq(paymentPlans.id, id),
+      with: {
+        customer: true,
+        invoice: true,
+        installments: {
+          orderBy: (installments, { asc }) => [asc(installments.installmentNumber)],
+        },
+      },
+    });
+    return result;
+  }
+
+  async createPaymentPlan(insertPaymentPlan: InsertPaymentPlan, installments: InsertPaymentPlanInstallment[]): Promise<PaymentPlanWithDetails> {
+    const [paymentPlan] = await db
+      .insert(paymentPlans)
+      .values(insertPaymentPlan)
+      .returning();
+    
+    // Create installments
+    if (installments.length > 0) {
+      await db.insert(paymentPlanInstallments).values(
+        installments.map(installment => ({
+          ...installment,
+          paymentPlanId: paymentPlan.id,
+        }))
+      );
+    }
+    
+    const result = await this.getPaymentPlan(paymentPlan.id);
+    return result!;
+  }
+
+  async updatePaymentPlan(id: number, updates: Partial<InsertPaymentPlan>): Promise<PaymentPlanWithDetails | undefined> {
+    const [paymentPlan] = await db
+      .update(paymentPlans)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(paymentPlans.id, id))
+      .returning();
+    
+    if (!paymentPlan) return undefined;
+    return await this.getPaymentPlan(paymentPlan.id);
+  }
+
+  async deletePaymentPlan(id: number): Promise<boolean> {
+    const result = await db
+      .delete(paymentPlans)
+      .where(eq(paymentPlans.id, id));
+    return (result.rowCount || 0) > 0;
+  }
+
+  async getPaymentPlanByInvoice(invoiceId: number): Promise<PaymentPlanWithDetails | undefined> {
+    const result = await db.query.paymentPlans.findFirst({
+      where: eq(paymentPlans.invoiceId, invoiceId),
+      with: {
+        customer: true,
+        invoice: true,
+        installments: {
+          orderBy: (installments, { asc }) => [asc(installments.installmentNumber)],
+        },
+      },
+    });
+    return result;
+  }
+
+  async processPaymentPlanInstallment(installmentId: number, paymentIntentId: string): Promise<boolean> {
+    try {
+      const [installment] = await db
+        .update(paymentPlanInstallments)
+        .set({
+          status: "paid",
+          paidDate: new Date(),
+          stripePaymentIntentId: paymentIntentId,
+        })
+        .where(eq(paymentPlanInstallments.id, installmentId))
+        .returning();
+      
+      if (!installment) return false;
+
+      // Check if all installments are paid
+      const plan = await db.query.paymentPlans.findFirst({
+        where: eq(paymentPlans.id, installment.paymentPlanId),
+        with: {
+          installments: true,
+        },
+      });
+
+      if (plan && plan.installments.every(inst => inst.status === "paid")) {
+        // Update payment plan status to completed
+        await db
+          .update(paymentPlans)
+          .set({ status: "completed", updatedAt: new Date() })
+          .where(eq(paymentPlans.id, plan.id));
+        
+        // Update invoice status to paid
+        await db
+          .update(invoices)
+          .set({ status: "paid", paidDate: new Date() })
+          .where(eq(invoices.id, plan.invoiceId));
+      }
+
+      return true;
+    } catch (error) {
+      console.error("Failed to process payment plan installment:", error);
+      return false;
+    }
+  }
+
+  async getOverdueInstallments(): Promise<PaymentPlanInstallmentWithPayment[]> {
+    const now = new Date();
+    const overdueInstallments = await db.query.paymentPlanInstallments.findMany({
+      where: and(
+        eq(paymentPlanInstallments.status, "pending"),
+        lt(paymentPlanInstallments.dueDate, now)
+      ),
+      with: {
+        payment: true,
+      },
+    });
+    
+    // Update status to overdue
+    for (const installment of overdueInstallments) {
+      await db
+        .update(paymentPlanInstallments)
+        .set({ status: "overdue" })
+        .where(eq(paymentPlanInstallments.id, installment.id));
+    }
+    
+    return overdueInstallments;
+  }
 }
 
 export class MemStorage implements IStorage {
@@ -1912,6 +2224,104 @@ export class MemStorage implements IStorage {
   }
 
   async searchParts(query: string): Promise<Part[]> {
+    return [];
+  }
+
+  // Recurring payment operations (stub implementations)
+  async getRecurringPayments(): Promise<RecurringPaymentWithCustomer[]> {
+    return [];
+  }
+
+  async getRecurringPayment(id: number): Promise<RecurringPaymentWithCustomer | undefined> {
+    return undefined;
+  }
+
+  async createRecurringPayment(recurringPayment: InsertRecurringPayment): Promise<RecurringPaymentWithCustomer> {
+    return {
+      id: 1,
+      customerId: recurringPayment.customerId,
+      name: recurringPayment.name,
+      description: recurringPayment.description || null,
+      amount: recurringPayment.amount,
+      interval: recurringPayment.interval,
+      intervalCount: recurringPayment.intervalCount,
+      startDate: recurringPayment.startDate,
+      endDate: recurringPayment.endDate || null,
+      nextPaymentDate: recurringPayment.nextPaymentDate,
+      status: recurringPayment.status || "active",
+      stripeSubscriptionId: recurringPayment.stripeSubscriptionId || null,
+      stripePriceId: recurringPayment.stripePriceId || null,
+      paymentMethod: recurringPayment.paymentMethod || "card",
+      taxRate: recurringPayment.taxRate || "0",
+      notes: recurringPayment.notes || null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      customer: this.customers.get(recurringPayment.customerId)!,
+    };
+  }
+
+  async updateRecurringPayment(id: number, recurringPayment: Partial<InsertRecurringPayment>): Promise<RecurringPaymentWithCustomer | undefined> {
+    return undefined;
+  }
+
+  async deleteRecurringPayment(id: number): Promise<boolean> {
+    return false;
+  }
+
+  async processRecurringPayments(): Promise<number> {
+    return 0;
+  }
+
+  // Payment plan operations (stub implementations)
+  async getPaymentPlans(): Promise<PaymentPlanWithDetails[]> {
+    return [];
+  }
+
+  async getPaymentPlan(id: number): Promise<PaymentPlanWithDetails | undefined> {
+    return undefined;
+  }
+
+  async createPaymentPlan(paymentPlan: InsertPaymentPlan, installments: InsertPaymentPlanInstallment[]): Promise<PaymentPlanWithDetails> {
+    return {
+      id: 1,
+      invoiceId: paymentPlan.invoiceId,
+      customerId: paymentPlan.customerId,
+      planName: paymentPlan.planName,
+      totalAmount: paymentPlan.totalAmount,
+      numberOfPayments: paymentPlan.numberOfPayments,
+      paymentInterval: paymentPlan.paymentInterval,
+      firstPaymentAmount: paymentPlan.firstPaymentAmount || null,
+      regularPaymentAmount: paymentPlan.regularPaymentAmount,
+      startDate: paymentPlan.startDate,
+      status: paymentPlan.status || "active",
+      stripeSetupIntentId: paymentPlan.stripeSetupIntentId || null,
+      stripePaymentMethodId: paymentPlan.stripePaymentMethodId || null,
+      notes: paymentPlan.notes || null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      customer: this.customers.get(paymentPlan.customerId)!,
+      invoice: this.invoices.get(paymentPlan.invoiceId)!,
+      installments: [],
+    };
+  }
+
+  async updatePaymentPlan(id: number, paymentPlan: Partial<InsertPaymentPlan>): Promise<PaymentPlanWithDetails | undefined> {
+    return undefined;
+  }
+
+  async deletePaymentPlan(id: number): Promise<boolean> {
+    return false;
+  }
+
+  async getPaymentPlanByInvoice(invoiceId: number): Promise<PaymentPlanWithDetails | undefined> {
+    return undefined;
+  }
+
+  async processPaymentPlanInstallment(installmentId: number, paymentIntentId: string): Promise<boolean> {
+    return false;
+  }
+
+  async getOverdueInstallments(): Promise<PaymentPlanInstallmentWithPayment[]> {
     return [];
   }
 }
